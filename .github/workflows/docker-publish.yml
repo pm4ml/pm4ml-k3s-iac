@@ -12,7 +12,7 @@ on:
 
 env:
   # TODO: Change variable to your image's name.
-  IMAGE_NAME: k3sbootstrap
+  IMAGE_NAME: k3s4pm4ml
 
 jobs:
   # Run tests.

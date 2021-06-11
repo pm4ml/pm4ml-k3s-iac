@@ -1,5 +1,5 @@
 # Mojaloop K3S Bootstrap
-A minimal PoC of mojaloop running on k3s
+A minimal IaC to provision PM4ML running on k3s
 
 ## Includes
 - ingress controller (nginx-ingress, ambassador or traefik)
@@ -8,9 +8,11 @@ A minimal PoC of mojaloop running on k3s
 - longhorn (Distrbuted storage driver)
 - gitlab (CI/CD within the deployed system)
 - wireguard (for VPN)
-- mojaloop (Deployed with default mojaloop helm chart)
+- PM4ML
+- argocd
 
-## Instructions for use
+
+## Instructions for use (out of date)
 
 ### Prerequisites
 - awscli must be installed and configured for creating infrastructure and terraform backend. This
