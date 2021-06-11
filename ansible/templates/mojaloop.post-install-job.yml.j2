@@ -1,0 +1,13 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: mojaloop-post-install
+spec:
+  backoffLimit: 5
+  template:
+    spec:
+      containers:
+      - name: mojaloop-post-install
+        image: alpine
+        command: ["/bin/sh", "-c", "apk add git curl && git clone -b master https://github.com/mojaloop/iac_post_deploy.git && cd iac_post_deploy/backend-post-setup && sh switch_setup.sh"]
+      restartPolicy: Never

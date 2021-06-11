@@ -1,0 +1,98 @@
+- hosts: k3s_master
+  roles:
+    - vandot.k3sup # install k3sup binary
+    - geerlingguy.helm # install helm cli
+    - role: codecap.kubectl # install kubectl cli
+      become: yes
+      vars:
+        kubectl_conf:
+          path: 
+            bin: /usr/local/bin
+            script: /usr/local/bin
+          version: latest
+          latest_url:           'https://storage.googleapis.com/kubernetes-release/release/stable.txt'
+          release_url:          'https://storage.googleapis.com/kubernetes-release/release'
+          install_completion:   true
+          ensure_prerequisites: true
+  tasks:
+    - name: Upload ssh key to master # Upload the ssh key to the bastion for connection to the k3s nodes
+      copy:
+        src: "{{ ansible_ssh_private_key_file }}"
+        dest: "/home/{{ ansible_ssh_user }}/.ssh/{{ client }}.{{ domain }}.key"
+        mode: '0644'
+    - name: Check whether to install traefik
+      set_fact:
+        k3s_extra_args_flag: --k3s-extra-args
+        k3s_extra_args_value: "--no-deploy traefik"
+      when: ingress_name != 'traefik'
+    - name: Install k3s on master
+      become: yes
+      command: 
+      args:
+        argv:
+          - k3sup
+          - install
+          - --ip
+          - "{{ groups['k3s_master'][0] }}"
+          - --ssh-key
+          - "/home/{{ ansible_ssh_user }}/.ssh/{{ client }}.{{ domain }}.key"
+          - --user
+          - "{{ ansible_ssh_user }}"
+          - --k3s-version
+          - "{{ k3s_version }}"
+          - --local-path
+          - "{{ kubeconfig_path }}"
+          - "{{ k3s_extra_args_flag }}"
+          - "{{ k3s_extra_args_value }}"
+      register: master_created
+      changed_when: '"No change detected" not in master_created.stdout'
+      tags: k3s_install
+# TODO: Add a task here to join additional masters as needed for HA (https://github.com/alexellis/k3sup#create-a-multi-master-ha-setup)
+    - name: Check for master API availability
+      uri:
+        url: "https://{{ groups['k3s_master'][0] }}:6443"
+        method: GET
+        validate_certs: False
+        status_code: 401
+        body_format: json
+      register: http_api_result
+      retries: 6
+      delay: 15
+      until: http_api_result is not failed
+      when: master_created is succeeded
+      tags:
+        - k3s_install
+    - name: Install k3s on nodes
+      command:
+      args:
+        argv:
+          - k3sup
+          - join
+          - --server-ip
+          - "{{ groups['k3s_master'][0] }}"
+          - --ip
+          - "{{ item }}"
+          - --ssh-key
+          - "/home/{{ ansible_ssh_user }}/.ssh/{{ client }}.{{ domain }}.key"
+          - --user
+          - "{{ ansible_ssh_user }}"
+          - --k3s-version
+          - "{{ k3s_version }}"
+      with_items: "{{ groups['k3s_node'] }}"
+      when: master_created is succeeded and http_api_result is succeeded
+      register: node_joined
+      tags: k3s_install
+      changed_when: '"No change detected" not in node_joined.stdout'
+    - name: Copy kubeconfig to user home # So that you don't need to be root to access the default in /etc/rancher/k3s
+      become: yes
+      copy: 
+        remote_src: True 
+        src: "{{ kubeconfig_path }}"
+        dest: "/home/{{ ansible_ssh_user }}/kubeconfig"
+        mode: 0644
+    - name: Set KUBECONFIG is set in .bashrc
+      lineinfile:
+        path: "/home/{{ ansible_ssh_user }}/.bashrc"
+        regexp: '^export KUBECONFIG='
+        line: "export KUBECONFIG=/home/{{ ansible_ssh_user }}/kubeconfig"
+    

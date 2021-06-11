@@ -1,0 +1,13 @@
+# ELB has been configured to use /healthz as the health check endpoint, 
+# so create a mapping to send that to the ambassador check_alive endpoint
+# This allows for configuration and deployment of ambassador to be done via ansible
+# rather than needing to change the upstream ELB config in terraform which has no knowledge of the downstream ingress
+apiVersion: getambassador.io/v2
+kind:  Mapping
+metadata:
+  name:  elb-healthz
+spec:
+  prefix: /healthz 
+  method: GET
+  service: ambassador
+  rewrite: /ambassador/v0/check_alive

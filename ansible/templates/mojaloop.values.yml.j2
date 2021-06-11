@@ -1,0 +1,178 @@
+global:
+  config:
+    db_password: {{ db_password }}
+    forensicloggingsidecar_disabled: true
+account-lookup-service:
+  account-lookup-service:
+    config:
+      db_password: {{ db_password }}
+    ingress:
+      hosts:
+        - account-lookup-service.{{ private_base_domain }}
+      annotations:
+        external-dns.alpha.kubernetes.io/target: {{ ingress_external_hostname }}
+    mysql:
+      enabled: true
+      mysqlPassword: {{ db_password }}
+      mysqlRootPassword: {{ db_root_password }}
+  account-lookup-service-admin:
+    config:
+      db_password: {{ db_password }}
+    ingress:
+      hosts:
+        - account-lookup-service-admin.{{ private_base_domain }}
+      annotations:
+        external-dns.alpha.kubernetes.io/target: {{ ingress_external_hostname }}
+  mysql:
+    mysqlPassword: {{ db_password }}
+central:
+  centraleventprocessor:
+    ingress:
+      hosts:
+        api: central-event-processor.{{ private_base_domain }}
+      annotations:
+        external-dns.alpha.kubernetes.io/target: {{ ingress_external_hostname }}
+  centralledger:
+    centralledger-handler-admin-transfer:
+      config:
+        db_password: {{ db_password }}
+      ingress:
+        hosts:
+          api: central-ledger-admin-transfer.{{ private_base_domain }}
+        annotations:
+          external-dns.alpha.kubernetes.io/target: {{ ingress_external_hostname }}
+    centralledger-handler-timeout:
+      config:
+        db_password: {{ db_password }}
+      ingress:
+        hosts:
+          api: central-ledger-timeout.{{ private_base_domain }}
+        annotations:
+          external-dns.alpha.kubernetes.io/target: {{ ingress_external_hostname }}
+    centralledger-handler-transfer-fulfil:
+      config:
+        db_password: {{ db_password }}
+      ingress:
+        hosts:
+          api: central-ledger-transfer-fulfil.{{ private_base_domain }}
+        annotations:
+          external-dns.alpha.kubernetes.io/target: {{ ingress_external_hostname }}
+    centralledger-handler-transfer-get:
+      config:
+        db_password: {{ db_password }}
+      ingress:
+        hosts:
+          api: central-ledger-transfer-get.{{ private_base_domain }}
+        annotations:
+          external-dns.alpha.kubernetes.io/target: {{ ingress_external_hostname }}
+    centralledger-handler-transfer-position:
+      config:
+        db_password: {{ db_password }}
+      ingress:
+        hosts:
+          api: central-ledger-transfer-position.{{ private_base_domain }}
+        annotations:
+          external-dns.alpha.kubernetes.io/target: {{ ingress_external_hostname }}
+    centralledger-handler-transfer-prepare:
+      config:
+        db_password: {{ db_password }}
+      ingress:
+        hosts:
+          api: central-ledger-transfer-prepare.{{ private_base_domain }}
+        annotations:
+          external-dns.alpha.kubernetes.io/target: {{ ingress_external_hostname }}
+    centralledger-service:
+      config:
+        db_password: {{ db_password }}
+      ingress:
+        annotations:
+          nginx.ingress.kubernetes.io/rewrite-target: /$2
+          external-dns.alpha.kubernetes.io/target: {{ ingress_external_hostname }}
+        externalPath:
+            api: /admin(/|$)(.*)
+        hosts:
+          api: interop-switch.{{ private_base_domain }}
+          admin: interop-switch.{{ private_base_domain }}
+        mysql:
+    mysql:
+      mysqlPassword: {{ db_password }}
+      mysqlRootPassword: {{ db_root_password }}
+      persistence:
+        enabled: true
+        accessMode: ReadWriteOnce
+        size: 8Gi
+        storageClass: {{ storage_class_name }}
+    kafka:
+      persistence:
+        enabled: true
+        size: "1Gi"
+        mountPath: "/opt/kafka/data"
+        storageClass: {{ storage_class_name }}
+  centralsettlement:
+    config:
+      db_password: {{ db_password }}
+    ingress:
+      annotations:
+        nginx.ingress.kubernetes.io/rewrite-target: /v1/$2
+        external-dns.alpha.kubernetes.io/target: {{ ingress_external_hostname }}
+      externalPath: /settlements(/|$)(.*)
+      hosts:
+        api: interop-switch.{{ private_base_domain }}
+        admin: interop-switch.{{ private_base_domain }}
+emailnotifier:
+  ingress:
+    hosts:
+      api: emailnotifier.{{ private_base_domain }}
+    annotations:
+      external-dns.alpha.kubernetes.io/target: {{ ingress_external_hostname }}
+ml-api-adapter:
+  ml-api-adapter-handler-notification:
+    ingress:
+      hosts:
+        api: ml-api-adapter-handler-notification.{{ private_base_domain }}
+      annotations:
+        external-dns.alpha.kubernetes.io/target: {{ ingress_external_hostname }}
+  ml-api-adapter-service:
+    ingress:
+      modernIngressController: true
+      modernIngressControllerRegex: (/|$)(.*)
+      annotations:
+        nginx.ingress.kubernetes.io/rewrite-target: /$2
+        external-dns.alpha.kubernetes.io/target: {{ ingress_external_hostname }}
+      hosts:
+        api: ml-api-adapter.{{ private_base_domain }}
+quoting-service:
+  config:
+    db_password: {{ db_password }}
+  ingress:
+    hosts:
+      api: quoting-service.{{ private_base_domain }}
+    annotations:
+      external-dns.alpha.kubernetes.io/target: {{ ingress_external_hostname }}
+simulator:
+  ingress:
+    hosts:
+      - moja-simulator.{{ private_base_domain }}
+    annotations:
+      external-dns.alpha.kubernetes.io/target: {{ ingress_external_hostname }}
+finance-portal:
+  config:
+    db_password: {{ db_password }}
+  backend: 
+    ingress:
+      enabled: true
+      hosts:
+        api: finance-portal.{{ private_base_domain }}
+      annotations:
+        nginx.ingress.kubernetes.io/rewrite-target: /$2
+        external-dns.alpha.kubernetes.io/target: {{ ingress_external_hostname }}
+  frontend: 
+    ingress:
+      enabled: true
+      hosts:
+        api: finance-portal.{{ private_base_domain }}
+      annotations:
+        nginx.ingress.kubernetes.io/rewrite-target: ""
+        external-dns.alpha.kubernetes.io/target: {{ ingress_external_hostname }}
+finance-portal-settlement-management:
+  enabled: false

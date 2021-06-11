@@ -1,0 +1,254 @@
+###
+# Install infrastructure components in the k3s cluster
+# e.g;
+# Longhorn Storage driver (https://longhorn.io/)
+# External DNS (https://hub.helm.sh/charts/bitnami/external-dns) 
+###
+- hosts: 
+    - k3s_node
+    - k3s_master
+  become: yes
+  tasks: 
+  #
+    # This is to address issues with volumes failing to mount with errors such as;
+    # MountVolume.SetUp failed for volume "pvc-fb637315-4db5-4280-9428-0b83310e16bd" : rpc error: code = Internal desc = exit status 1
+    # See https://github.com/longhorn/longhorn/issues/1210 and https://github.com/cclhsu/website/blob/7b1eb0cb8db56e161c2e620ec8e20c97547a8ec0/content/kb/troubleshooting-volume-with-multipath.md for details
+    #
+    - name: Gather the package facts
+      ansible.builtin.package_facts:
+        manager: auto
+      tags:
+        - longhorn
+        - multipathfix
+    - name: Configure multipathd to ignore longhorn volumes
+      blockinfile:
+        path: /etc/multipath.conf
+        block: |
+          blacklist {
+            devnode "^sd[a-z0-9]+"
+          }
+      tags:
+        - longhorn
+        - multipathfix
+      register: multipathconf
+      when: "'multipath-tools' in ansible_facts.packages"
+    - name: Restart multipathd
+      ansible.builtin.service:
+        name: multipathd
+        state: restarted
+      when: "'multipath-tools' in ansible_facts.packages and multipathconf.changed"
+      tags:
+        - longhorn
+        - multipathfix
+- hosts: k3s_node
+  become: yes
+  tasks:
+    - name: Create CSI Plugin registry dir
+      file: 
+        state: directory
+        path: /var/lib/kubelet/plugins_registry
+      tags:
+        - longhorn
+- hosts: k3s_master
+  become: yes
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  collections:
+    - community.kubernetes
+  roles:
+    - role: geerlingguy.helm
+      tags: 
+        - external-dns
+  tasks:
+    # Create a temporary directory for storing values files or other config
+    - name: Create temporary directory
+      tempfile:
+        state: directory
+        suffix: values
+      register: tmpvalues
+      tags:
+        - external-dns
+        - cert-manager
+        - clusterissuer
+        - longhorn
+        - nginx-ingress
+        - ambassador
+        - upload
+        - portainer
+        - argocd
+    # Give traefik the hostname for the external load balancer 
+    # This is then used to update any ingress objects created in the cluster
+    # The external-dns service in turn uses this hostname as the target when creating the DNS entry
+    # See https://docs.traefik.io/providers/kubernetes-ingress/#ingressendpoint
+    - name: Patch traefik config to use external load balancer
+      replace:
+        path: /var/lib/rancher/k3s/server/manifests/traefik.yaml
+        regexp: "useDefaultPublishedService: true"
+        replace: "hostname: {{ ingress_external_hostname }}"
+      tags:
+        - traefik
+      when: ingress_name == 'traefik'
+    #
+    # Install and configure longhorn storage driver
+    #
+    - name: Create CSI Plugin registry dir for Longhorn
+      file: 
+        state: directory
+        path: /var/lib/kubelet/plugins_registry
+      tags:
+          - longhorn
+    - name: Ensure git is installed
+      apt:
+        update_cache: yes
+        name: git
+    - name: Mark default storage class
+      shell: | 
+        kubectl patch storageclass local-path -p '{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"false"}}}'
+      tags:
+        - longhorn
+    - name: Upload longhorn secret yaml
+      template: 
+        src: "templates/{{ cloud_provider }}/longhorn.secret.yml.j2"
+        dest: "{{ tmpvalues.path }}/longhorn.secret.yml"
+      tags:
+        - longhorn
+    - name: Create longhorn backup secret
+      shell: |
+        kubectl apply -f - <<EOF
+        apiVersion: v1
+        kind: Namespace
+        metadata:
+          name: longhorn-system 
+        EOF
+        kubectl apply -n longhorn-system -f {{ tmpvalues.path }}/longhorn.secret.yml
+      tags:
+        - longhorn
+    - name: Upload longhorn helm values
+      template: 
+        src: "templates/{{ cloud_provider }}/longhorn.values.yml.j2"
+        dest: "{{ tmpvalues.path }}/longhorn.values.yml"
+      tags:
+        - longhorn
+    - name: Install longhorn with helm
+      shell: |
+        helm repo add longhorn https://charts.longhorn.io;
+        helm repo update;
+        cp {{ tmpvalues.path }}/longhorn.values.yml ./longhorn.tmp.values.yml
+        helm upgrade --install --namespace longhorn-system longhorn longhorn/longhorn -f {{ tmpvalues.path }}/longhorn.values.yml
+      tags:
+        - longhorn
+    #
+    # Install other applications using helm
+    #
+    - name: Update helm repos
+      shell: |
+        helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx; \
+        helm repo add bitnami https://charts.bitnami.com/bitnami; \
+        helm repo add jetstack https://charts.jetstack.io; \
+        helm repo add datawire https://getambassador.io; \
+        helm repo add portainer https://portainer.github.io/k8s/; \
+        helm repo add argo https://argoproj.github.io/argo-helm; \
+        helm repo update;
+      tags:
+        - cert-manager
+        - external-dns
+        - nginx-ingress
+        - ambassador
+        - portainer
+        - argocd
+    # Upload values files, using the specific version for the cloud_provider if found, or a generic version otherwise
+    - name: Upload helm values
+      template: 
+        src: "{{ lookup('first_found', findvalues) }}"
+        dest: "{{ tmpvalues.path }}/{{ item }}.yml"
+      vars:
+        findvalues:
+          - "templates/{{ cloud_provider }}/{{ item }}.yml.j2"
+          - "templates/{{ item }}.yml.j2"
+      with_items:
+          - nginx-ingress.values
+          - external-dns.values
+          - cert-manager.namespace
+          - cert-manager.values
+          - cert-manager.clusterissuer
+          - ambassador.values
+          - ambassador.mapping
+          - portainer.values
+          - portainer.namespace
+      tags:
+        - external-dns
+        - nginx-ingress
+        - cert-manager
+        - clusterissuer
+        - ambassador
+        - upload
+        - portainer
+    # Install nginx ingress controller
+    - name: Deploy nginx-ingress helm chart
+      shell: |
+        helm upgrade --install nginx-ingress ingress-nginx/ingress-nginx -f "{{ tmpvalues.path }}/nginx-ingress.values.yml"
+      tags:
+        - nginx-ingress
+      when: ingress_name == 'nginx'
+    # Install ambassador ingress controller
+    - name: Deploy ambassador helm chart
+      shell: |
+        helm upgrade --install ambassador datawire/ambassador -f "{{ tmpvalues.path }}/ambassador.values.yml"
+      tags:
+        - ambassador
+      when: ingress_name == 'ambassador'
+    - name: Configure ELB health check for ambassador
+      shell: |
+        kubectl apply -f "{{ tmpvalues.path }}/ambassador.mapping.yml"
+      tags: 
+        - ambassador
+      when: ingress_name == 'ambassador' and cloud_provider == 'aws'
+    #
+    # Install external-dns for automatic DNS record creation, currently not supported in onprem deployments
+    #
+    - name: Deploy external-dns helm chart
+      shell: |
+        helm upgrade --install external-dns bitnami/external-dns -f "{{ tmpvalues.path }}/external-dns.values.yml"
+      tags:
+        - external-dns
+      when: cloud_provider != 'onprem'
+    #
+    # Install cert-manager for automatic provisioning of SSL Certs, currently not supported in onprem deployments
+    #
+    - name: Install cert-manager
+      shell: | 
+        kubectl apply -f "{{ tmpvalues.path }}/cert-manager.namespace.yml"
+        helm upgrade --install cert-manager jetstack/cert-manager --namespace cert-manager --version v{{ certmanager_version }} -f "{{ tmpvalues.path }}/cert-manager.values.yml"
+      tags: 
+        - cert-manager
+      when: cloud_provider != 'onprem' 
+    - name: Wait for cert-manager webhook to start # before we create the clusterissuer
+      shell: |
+        kubectl --kubeconfig {{ kubeconfig_path }} -n cert-manager wait --for=condition=ready pod -l app.kubernetes.io/instance=cert-manager,app=webhook --timeout=180s
+      tags: 
+        - cert-manager
+      when: cloud_provider != 'onprem' 
+    - name: Create LetsEncrypt clusterissuer
+      shell: |
+        kubectl apply -f  "{{ tmpvalues.path }}/cert-manager.clusterissuer.yml"
+      tags:
+        - cert-manager
+        - clusterissuer
+      when: cloud_provider != 'onprem'
+    #
+    # Install portainer for container management
+    #
+    - name: Install portainer
+      shell: |
+        kubectl apply -f "{{ tmpvalues.path }}/portainer.namespace.yml" 
+        helm upgrade --install portainer portainer/portainer --namespace portainer -f "{{ tmpvalues.path }}/portainer.values.yml"
+      tags:
+        - portainer
+    #
+    # Install argo for cd
+    #
+    - name: Install argocd
+      shell: |
+        helm upgrade --create-namespace --install argocd argo/argo --namespace argocd
+      tags:
+        - argocd

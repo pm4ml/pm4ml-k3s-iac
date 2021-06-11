@@ -1,0 +1,1 @@
+# Terraform module to provide a state which can be read in ansible for on-prem servers

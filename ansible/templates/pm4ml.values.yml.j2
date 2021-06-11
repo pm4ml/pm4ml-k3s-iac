@@ -1,0 +1,229 @@
+#jinja2: lstrip_blocks: "True"
+ingress:
+  enabled: false
+
+imagePullCredentials: &imagePullCredentials
+  user: "{{ item.value.private_reg_user }}"
+  pass: "{{ item.value.private_reg_pass }}"
+  registry: "{{ item.value.private_reg_url }}"
+
+experienceApiClientSecret: &experienceApiClientSecret "38f84299-d9b4-4d4e-a195-c1996d028406"
+
+frontendRootUrl: &frontendRootUrl "https://portal.{{ item.key }}.{{ item.value.pm4ml_subdomain }}/"
+frontendBaseUrl: &frontendBaseUrl "https://experience-api.{{ item.key }}.{{ item.value.pm4ml_subdomain }}/"
+
+# this needs to have external URLs of both the UI and experience API
+frontendRedirectUris: &frontendRedirectUris
+  - "https://portal.{{ item.key }}.{{ item.value.pm4ml_subdomain }}/*"
+  - "https://experience-api.{{ item.key }}.{{ item.value.pm4ml_subdomain }}/*"
+
+# this _should_ be set to only allow requests from known origins
+frontendWebOrigins: &frontendWebOrigins
+  - "*"
+
+# this should be set to the FSPID assigned by the mojaloop hub to this DFSP
+dfspId: &dfspId "{{ item.value.dfsp_id }}"
+# this should be set to the ID of the default MCM environment for this DFSP
+mcmEnvironmentId: &mcmEnvironmentId 1
+
+frontend:
+  imagePullCredentials: *imagePullCredentials
+  env:
+    API_BASE_URL: "https://experience-api.{{ item.key }}.{{ item.value.pm4ml_subdomain }}"
+  ingress:
+    enabled: true
+    hosts:
+      - host: "portal.{{ item.key }}.{{ item.value.pm4ml_subdomain }}"
+        paths: ['/']
+    annotations:
+      kubernetes.io/ingress.class: {{ ingress_class }}
+      cert-manager.io/cluster-issuer: letsencrypt
+      external-dns.alpha.kubernetes.io/target: {{ dfsp_access_lb_hostname }}
+      nginx.ingress.kubernetes.io/rewrite-target: /
+    tls:
+    - secretName: pm4ml-tls
+      hosts:
+        - "*.{{ item.key }}.{{ item.value.pm4ml_subdomain }}"
+
+experience-api:
+  imagePullCredentials: *imagePullCredentials
+  env:
+    enableMockData: false
+    managementEndPoint: "{{ item.value.helm_release_name }}-management-api"
+    envId: *mcmEnvironmentId
+    dfspId: *dfspId
+    appKeys: ootu1yoo5geeS7izai4ox1Yae1Eey6ai
+    authClientSecret: *experienceApiClientSecret
+    metricsEndPoint: "{{ item.value.helm_release_name }}-prometheus-server"
+    authDiscoveryEndpoint: "http://{{ [item.value.helm_release_name, "-keycloak"] | join | truncate(20,true,'',0)}}-http/auth/realms/pm4ml/.well-known/openid-configuration"
+    # this should be set to the external URL of the auth endpoint on the experience API
+    authRedirectUri: "https://experience-api.{{ item.key }}.{{ item.value.pm4ml_subdomain }}/auth"
+    # this should be set to the external URL of the UI
+    authLoggedInLandingUrl: "https://portal.{{ item.key }}.{{ item.value.pm4ml_subdomain }}/"
+    authSessionSecure: false
+  ingress:
+    enabled: true
+    hosts:
+      - host: "experience-api.{{ item.key }}.{{ item.value.pm4ml_subdomain }}"
+        paths: ['/']
+    annotations:
+      kubernetes.io/ingress.class: {{ ingress_class }}
+      cert-manager.io/cluster-issuer: letsencrypt
+      external-dns.alpha.kubernetes.io/target: {{ dfsp_access_lb_hostname }}
+      nginx.ingress.kubernetes.io/rewrite-target: /
+    tls:
+    - secretName: pm4ml-tls
+      hosts:
+        - "*.{{ item.key }}.{{ item.value.pm4ml_subdomain }}"
+
+management-api:
+  imagePullCredentials: *imagePullCredentials
+  env:
+    cache_host: redis-master
+    envId: *mcmEnvironmentId
+    dfspId: *dfspId
+    mcmServerEndpoint: "{{ item.value.mcm_host_url }}/api"
+    mcmClientRefreshInterval: 60
+    p12PassPhrase: "{{ item.value.p12_pass_phrase }}"
+    dfspCsrPrivateKeyLength: 4096
+    dfspCsrPrivateKeyAlgorithm: rsa
+    wsUrl: "{{ item.value.helm_release_name }}-mojaloop-connector"
+    wsPort: 4003
+    AUTH_ENABLED: {{ item.value.mcm_auth_enabled }}
+    AUTH_USER: {{ item.value.mcm_auth_user }}
+    AUTH_PASS: {{ item.value.mcm_auth_pass }}
+    mcmClientsSecretsLocation: /tls
+  ingress:
+    enabled: false
+
+prometheus:
+  server:
+    persistentVolume:
+      enabled: false
+  alertmanager:
+    persistentVolume:
+      enabled: false
+  pushgateway:
+    persistentVolume:
+      enabled: false
+  extraScrapeConfigs: |-
+    - job_name: 'prometheus-blackbox-exporter'
+      static_configs:
+        - targets:
+          - "{{ item.value.helm_release_name }}-mojaloop-connector:4004"
+
+mojaloop-simulator-core-connector:
+  enabled: {{ mojaloop_simulator_core_connector_enabled }}
+  imagePullCredentials: *imagePullCredentials
+  env:
+    backendApplicationEndpoint: "http://sim-backend:3000"
+    outboundApplicationEndpoint: "http://{{ item.value.helm_release_name }}-mojaloop-connector:4001"
+  ingress:
+    enabled: true
+    hosts:
+      - host: "core-connector.{{ item.key }}.{{ item.value.pm4ml_subdomain }}"
+        paths: ['/']
+    annotations:
+      kubernetes.io/ingress.class: {{ ingress_class }}
+      cert-manager.io/cluster-issuer: letsencrypt
+      external-dns.alpha.kubernetes.io/target: {{ dfsp_access_lb_hostname }}
+      nginx.ingress.kubernetes.io/rewrite-target: /
+    tls:
+    - secretName: pm4ml-tls
+      hosts:
+        - "*.{{ item.key }}.{{ item.value.pm4ml_subdomain }}"
+
+pm4ml-mojaloop-connector:
+  imagePullCredentials: *imagePullCredentials
+  env:
+    DFSP_ID: *dfspId
+    CACHE_HOST: redis-master
+    JWS_SIGN: true
+    VALIDATE_INBOUND_JWS: false
+    PEER_ENDPOINT: "{{ item.value.extgw_fqdn }}:8243/fsp/1.0"
+    OUTBOUND_MUTUAL_TLS_ENABLED: true
+    INBOUND_MUTUAL_TLS_ENABLED: false
+    OAUTH_TOKEN_ENDPOINT: "https://{{ item.value.extgw_fqdn }}:8243/token"
+    OAUTH_CLIENT_KEY: "{{ item.value.extgw_client_key }}"
+    OAUTH_CLIENT_SECRET: "{{ item.value.extgw_client_secret }}"
+    BACKEND_ENDPOINT: "{{ item.value.helm_release_name }}-mojaloop-simulator:4001/simapi"
+  secrets:
+    tls:
+      outbound:
+        cacert: |-
+          {{ item.value.tls_outbound_cacert | indent( width=10) }}
+        cert: |-
+          {{ item.value.tls_outbound_cert | indent( width=10) }}
+        key: |-
+          {{ item.value.tls_outbound_privkey | indent( width=10) }}
+  ingress:
+    enabled: true
+    hosts:
+      - host: "connector.{{ item.key }}.{{ item.value.pm4ml_subdomain }}"
+    annotations:
+      kubernetes.io/ingress.class: {{ ingress_class }}
+      cert-manager.io/cluster-issuer: vault-issuer
+      external-dns.alpha.kubernetes.io/target: {{ switch_access_lb_hostname }}
+      nginx.ingress.kubernetes.io/auth-tls-verify-client: "on"
+      nginx.ingress.kubernetes.io/auth-tls-secret: "{{ item.key }}/mojaloop-connector-tls"
+    tls:
+    - secretName: mojaloop-connector-tls
+      hosts:
+        - "connector.{{ item.key }}.{{ item.value.pm4ml_subdomain }}"
+
+ttk:
+  enabled: {{ item.value.ttk_enabled }}
+
+keycloak:
+  ingress:
+    enabled: true
+    rules:
+      -
+        # Ingress host
+        host: "keycloak.{{ item.key }}.{{ item.value.pm4ml_subdomain }}"
+        # Paths for the host
+        paths:
+          - /
+    annotations:
+      kubernetes.io/ingress.class: {{ ingress_class }}
+      cert-manager.io/cluster-issuer: letsencrypt
+      external-dns.alpha.kubernetes.io/target: {{ dfsp_access_lb_hostname }}
+    tls:
+    - secretName: pm4ml-tls
+      hosts:
+        - "*.{{ item.key }}.{{ item.value.pm4ml_subdomain }}"
+  extraVolumes: |
+    - name: realm-config
+      # the below should be set to the name of the keycloak realm config map
+      # this has the deployment name on the front but because helm is so horrible
+      # we cant get the deployment name here in a nice way. You have to plug it
+      # in manually. e.g. the below works for a deployment called "pm4ml"
+      configMap:
+        name: {{ item.key }}-mojaloop-payment-manager-keycloak-realm
+  extraEnv: |
+    - name: KEYCLOAK_USER
+      value: admin
+    - name: KEYCLOAK_IMPORT
+      value: /realm/realm.json
+    # the below should be set to the external URL of keycloak
+    - name: KEYCLOAK_FRONTEND_URL
+      value: "https://keycloak.{{ item.key }}.{{ item.value.pm4ml_subdomain }}/auth"
+    - name: KEYCLOAK_PASSWORD
+      value: ##KEYCLOAK_PASSWORD##
+sim-backend:
+  enabled: true
+  env:
+    OUTBOUND_ENDPOINT: http://{{ item.value.helm_release_name }}-mojaloop-connector:4001
+    DFSP_ID: *dfspId
+  ingress:
+    enabled: false
+testIngress:
+  enabled: true
+  simBackendServiceName: "sim-backend"
+  coreConnectorServiceName: "{{ item.value.helm_release_name }}-{{ core_connector_service_name }}"
+  mojaloopConnectorServiceName: "{{ item.value.helm_release_name }}-pm4ml-mojaloop-connector"
+  hosts:
+    - host: "test.{{ item.key }}.{{ item.value.pm4ml_subdomain }}"
+  annotations:
+    kubernetes.io/ingress.class: {{ ingress_class }}
+    external-dns.alpha.kubernetes.io/target: {{ dfsp_access_lb_hostname }}

@@ -1,0 +1,83 @@
+global:
+  hosts:
+    domain: {{ base_domain }}
+  ingress:
+    class: {{ ingress_class }} 
+    enabled: true
+    tls:
+      enabled: true
+    configureCertmanager: false # Don't use the built-in issuer created by gitlab, use the clusterissuer created by ansible specified below
+    annotations: 
+      kubernetes.io/ingress.provider: {{ ingress_class }} # Override the default in the gitlab chart
+      cert-manager.io/cluster-issuer: letsencrypt
+      external-dns.alpha.kubernetes.io/target: {{ ingress_external_hostname }} # Needed for ambassador ingress
+  grafana:
+    enabled: false
+  appConfig:
+    initialDefaults:
+      signupEnabled: false    
+nginx-ingress:
+  enabled: false
+certmanager:
+  install: false
+
+prometheus:
+  install: false
+
+gitlab-runner:
+  resources:
+    requests:
+      cpu: 25m
+      memory: 64Mi
+gitlab:
+  webservice:
+    ingress:
+      tls:
+        secretName: gitlab-gitlab-tls
+    minReplicas: 1
+    resources:
+      requests:
+        cpu: 50m
+  gitaly:
+    resources:
+      requests:
+        cpu: 25m
+        memory: 32Mi
+  task-runner:
+    resources:
+      requests:
+        cpu: 10m
+        memory: 256Mi
+  gitlab-exporter:
+    resources:
+      requests:
+        cpu: 10m
+        memory: 50Mi
+minio:
+  ingress:
+    tls:
+      secretName: gitlab-minio-tls
+  resources:
+    requests:
+      cpu: 10m
+      memory: 64Mi
+registry:
+  ingress:
+    tls:
+      secretName: gitlab-registry-tls
+  hpa:
+    minReplicas: 1
+  resources:
+    requests:
+      cpu: 10m
+      memory: 16Mi
+gitlab-shell:
+  minReplicas: 1
+  resources:
+    requests:
+      cpu: 10m
+postgresql:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi

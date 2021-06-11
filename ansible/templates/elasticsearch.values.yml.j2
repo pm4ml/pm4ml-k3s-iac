@@ -1,0 +1,12 @@
+ingress:
+  enabled: false
+# Allow pods to run on same node for small footprint deployments
+antiAffinity: soft
+replicas: 3
+minimumMasterNodes: 3
+
+volumeClaimTemplate:
+  accessModes: [ "ReadWriteOnce" ]
+  resources:
+    requests:
+      storage: 100Gi

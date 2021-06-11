@@ -1,0 +1,43 @@
+- hosts: k3s_master
+  become: yes
+  collections:
+    - community.kubernetes
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  roles:
+    - geerlingguy.helm
+  tasks:
+    - name: Create temporary directory
+      tempfile:
+        state: directory
+        suffix: values
+      register: tmpvalues
+      tags:
+        - mojaloop
+    - name: Generate passwords
+      set_fact:
+        db_password: "{{ lookup('password', './mojaloop_db_password chars=ascii_letters,digits length=15') }}"
+        db_root_password: "{{ lookup('password', './mojaloop_db_root_password chars=ascii_letters,digits length=15') }}"
+      tags: 
+        - mojaloop
+    - name: Upload yaml files
+      template: 
+        src: "templates/{{ item }}.yml.j2"
+        dest: "{{ tmpvalues.path }}/{{ item }}.yml"
+      with_items:
+        - mojaloop.values
+        - mojaloop.post-install-job
+      tags:
+        - mojaloop
+    - name: Deploy helm chart # TODO: Below helm repo is a beta chart with compatibility for helm3, replace with mojaloop release version once PR has been merged; https://github.com/mojaloop/helm/pull/285
+      shell: |
+        helm repo add mojaloop-beta https://mojaloop-helm-repo.s3.us-east-2.amazonaws.com/temp
+        helm repo update
+        helm upgrade --create-namespace --namespace mojaloop --install mojaloop mojaloop-beta/mojaloop -f  "{{ tmpvalues.path }}/mojaloop.values.yml" --version {{ mojaloop_version }}
+      tags:
+        - mojaloop
+    - name: Execute mojaloop post install job
+      shell: |
+        kubectl -n mojaloop apply -f "{{ tmpvalues.path }}/mojaloop.post-install-job.yml"
+      tags:
+        - mojaloop

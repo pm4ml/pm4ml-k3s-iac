@@ -1,0 +1,6 @@
+- hosts: haproxy_primary:haproxy_secondary
+  become: yes
+  roles:
+    - role: onprem_haproxy
+      when: cloud_provider == 'onprem' and onprem_configure_haproxy == 'yes'
+  

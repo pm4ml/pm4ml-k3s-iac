@@ -1,0 +1,37 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ item.key }}-tls-creds
+  namespace: {{ item.value.NAMESPACE }}
+  labels:
+    app.kubernetes.io/name: {{ item.key }}-tls-creds
+data:
+  inbound-cacert.pem: {{ item.value.INBOUND_CACERT_PEM | b64encode }}
+  inbound-cert.pem:   {{ item.value.INBOUND_CERT_PEM | b64encode }}
+  inbound-key.pem:    {{ item.value.INBOUND_KEY_PEM  | b64encode }}
+  outbound-cacert.pem: {{ item.value.OUTBOUND_CACERT_PEM | b64encode }}
+  outbound-cert.pem:   {{ item.value.OUTBOUND_CERT_PEM | b64encode }}
+  outbound-key.pem:    {{ item.value.OUTBOUND_KEY_PEM | b64encode }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ item.key }}-jws-priv-key
+  namespace: {{ item.value.NAMESPACE }}
+  labels:
+    app.kubernetes.io/name: {{ item.key }}-jws-priv-key
+data:
+  private.key: {{ item.value.PRIVATE_KEY | b64encode }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ item.key }}-jws-pub
+  namespace: {{ item.value.NAMESPACE }}
+  labels:
+    app.kubernetes.io/name: {{ item.key }}-jws-pubs
+data:
+{% for key, value in item.value.JWS_PUB_SIM_CONFIG_MAP.items() %}
+{{ key | indent( width=2, indentfirst=True) }}: |-
+{{ value | indent( width=4, indentfirst=True)}}
+{% endfor %}

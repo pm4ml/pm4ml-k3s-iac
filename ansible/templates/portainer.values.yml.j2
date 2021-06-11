@@ -1,0 +1,15 @@
+service:
+  type: LoadBalancer
+ingress:
+  enabled: true
+  annotations:
+    kubernetes.io/ingress.class: {{ ingress_class }}
+    kubernetes.io/ingress.provider: {{ ingress_class }}
+  hosts: 
+    - host: portainer.{{ base_domain }}
+      paths: 
+        - path: / 
+  tls:
+    - secretName: portainer-tls
+      hosts: 
+        - portainer.{{ base_domain }}

@@ -1,0 +1,21 @@
+- name: Install HAProxy
+  apt: 
+    name: haproxy
+    state: present
+    update_cache: yes
+- name: Upload SSL Cert
+  copy:
+    src: "{{ onprem_haproxy_cert }}"
+    dest: /etc/ssl/private/haproxy_frontend.pem
+- name: Ensure haproxy conf is set
+  template: 
+    src: templates/haproxy.cfg.j2 
+    dest: /etc/haproxy/haproxy.cfg
+  notify:
+    - restart haproxy
+- name: Ensure nonlocal bind kernel parameter is set
+  sysctl: >
+    name=net.ipv4.ip_nonlocal_bind
+    value=1
+    state=present
+    ignoreerrors=yes

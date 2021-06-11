@@ -1,0 +1,49 @@
+- hosts: k3s_master
+  become: yes
+  collections:
+    - community.kubernetes
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  roles:
+    - geerlingguy.helm
+  tasks:
+    - name: Read sims config
+      include_vars:
+        file: "{{ sims_config_file }}"
+        name: sim_config_file
+    - name: Create temporary directory
+      tempfile:
+        state: directory
+        suffix: values
+      register: tmpvalues
+      tags:
+        - sims
+    - name: Upload sim kube yaml
+      template:
+        src: "templates/sim.kubectl.yml.j2"
+        dest: "{{ tmpvalues.path }}/{{ item.key }}.sim.kubectl.yml"
+      loop: "{{ sim_config_file | dict2items }}"
+      loop_control:
+        label: "{{ item.key }}"
+      tags:
+        - sims
+    - name: Upload sim helm values
+      template:
+        src: "templates/sim.helm.values.yml.j2"
+        dest: "{{ tmpvalues.path }}/{{ item.key }}.sim.helm.values.yml"
+      loop: "{{ sim_config_file | dict2items }}"
+      loop_control:
+        label: "{{ item.key }}"
+      tags:
+        - sims
+    - name: Deploy helm chart
+      shell: |
+        helm repo add mojaloop http://mojaloop.io/helm/repo
+        helm repo update
+        helm upgrade --create-namespace --namespace {{ item.value.NAMESPACE }} --install {{ item.key }} mojaloop/mojaloop-simulator -f "{{ tmpvalues.path }}/{{ item.key }}.sim.helm.values.yml"
+        kubectl apply -f {{ tmpvalues.path }}/{{ item.key }}.sim.kubectl.yml
+      loop: "{{ sim_config_file | dict2items }}"
+      loop_control:
+        label: "{{ item.key }}"
+      tags:
+        - sims

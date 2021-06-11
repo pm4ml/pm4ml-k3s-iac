@@ -1,0 +1,17 @@
+elasticsearchHosts: "http://elasticsearch-master:9200"
+replicas: 1
+ingress:
+  enabled: true
+  annotations:
+    kubernetes.io/ingress.class: {{ ingress_class }}
+    kubernetes.io/ingress.provider: {{ ingress_class }}
+  hosts: 
+    - {{ kibana_domain }}
+  tls:
+    - secretName: kibana-tls
+      hosts: 
+        - {{ kibana_domain }}
+resources:
+  requests:
+    cpu: "100m"
+    memory: "256Mi"

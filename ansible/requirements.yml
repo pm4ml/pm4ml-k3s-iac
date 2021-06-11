@@ -1,0 +1,5 @@
+---
+# Execute 'ansible-galaxy collection install -r requirements.yml' to install
+  collections:
+    - name: community.kubernetes
+      version: 0.9.0

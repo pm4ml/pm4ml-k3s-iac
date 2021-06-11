@@ -1,0 +1,253 @@
+- hosts: k3s_master
+  become: yes
+  collections:
+    - community.kubernetes
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  roles:
+    - geerlingguy.helm
+  tasks:
+    - name: Create temporary directory
+      tempfile:
+        state: directory
+        suffix: values
+      register: tmpvalues
+      tags:
+        - vault
+        - vault-auth
+        - vault-crd
+        - vault-issuer
+    - name: Ensure jq is installed
+      package:
+        name: jq
+        state: present
+    # Upload values files, using the specific version for the cloud_provider if found, or a generic version otherwise
+    - name: Upload helm values
+      template: 
+        src: "{{ lookup('first_found', findvalues) }}"
+        dest: "{{ tmpvalues.path }}/{{ item }}.yml"
+      vars:
+        findvalues:
+          - "templates/{{ cloud_provider }}/{{ item }}.yml.j2"
+          - "templates/{{ item }}.yml.j2"
+      with_items:
+          - vault.values
+          - vault-crd.values
+      tags:
+        - vault 
+        - vault-crd
+    - name: Deploy helm chart 
+      shell: |
+        helm repo add hashicorp https://helm.releases.hashicorp.com
+        helm repo update
+        helm upgrade  --install vault hashicorp/vault -f  "{{ tmpvalues.path }}/vault.values.yml" --version {{ vault_version }}
+      tags:
+        - vault
+    - name: Wait for vault deployment # kubectl wait doesn't work here because the pod is not Ready until the vault is unsealed, see https://github.com/kubernetes/kubernetes/issues/83094#issuecomment-549308875 for examples
+      shell: |
+        status="Unknown"
+        while [ $status != "Running" ] ;  
+        do 
+          sleep 5; 
+          status=$(kubectl get pods vault-0 -o json  | jq -r '.status.phase')
+          echo "status is $status";
+        done
+      vars:
+        ansible_command_timeout: 120
+      tags:
+        - vault
+    - name: Initialise vault and unseal
+      shell: |
+        kubectl exec vault-0 -- vault operator init -key-shares=1 -key-threshold=1 -format=json > vault-keys.json
+        VAULT_UNSEAL_KEY=$(cat vault-keys.json | jq -r ".unseal_keys_b64[]")
+        kubectl exec vault-0 -- vault operator unseal $VAULT_UNSEAL_KEY
+        VAULT_ROOT_TOKEN=$(cat vault-keys.json | jq -r ".root_token")
+        kubectl exec vault-0 -- vault login $VAULT_ROOT_TOKEN
+      tags:
+        - vault
+        - vault-init
+    - name: Download vault keys
+      fetch: 
+        src: vault-keys.json
+        dest: ../vault-keys.json
+        flat: yes
+      tags:
+        - vault 
+    - name: Upload vault policy
+      template: 
+        src: "{{ lookup('first_found', findvalues) }}"
+        dest: "{{ tmpvalues.path }}/{{ item }}.hcl"
+      vars:
+        findvalues:
+          - "templates/{{ cloud_provider }}/{{ item }}.hcl.j2"
+          - "templates/{{ item }}.hcl.j2"
+      with_items:
+          - vault-crd.policy
+          - vault.cert-manager.policy
+      tags:
+        - vault
+        - vault-auth
+        - vault-issuer
+    - name: Create vault service accounts in kubernetes
+      shell: |
+        # Create the vault-crd service account
+        cat <<EOF | kubectl apply -f - 
+        apiVersion: v1
+        kind: ServiceAccount
+        metadata:
+          name: vault-crd-auth
+          namespace: default
+        EOF
+
+        # Add cluster role binding for the vault-crd service account
+        cat <<EOF | kubectl apply -f -
+        apiVersion: rbac.authorization.k8s.io/v1beta1
+        kind: ClusterRoleBinding
+        metadata:
+          name: role-tokenreview-binding
+          namespace: default
+        roleRef:
+          apiGroup: rbac.authorization.k8s.io
+          kind: ClusterRole
+          name: system:auth-delegator
+        subjects:
+        - kind: ServiceAccount
+          name: vault-crd-auth
+          namespace: default
+        EOF
+
+        # Create the cert-manager service account
+        cat <<EOF | kubectl apply -f - 
+        apiVersion: v1
+        kind: ServiceAccount
+        metadata:
+          name: vault-cert-manager-auth
+          namespace: cert-manager
+        EOF
+
+        # Add cluster role binding for the cert-manager service account
+        cat <<EOF | kubectl apply -f -
+        apiVersion: rbac.authorization.k8s.io/v1beta1
+        kind: ClusterRoleBinding
+        metadata:
+          name: role-tokenreview-binding
+          namespace: cert-manager
+        roleRef:
+          apiGroup: rbac.authorization.k8s.io
+          kind: ClusterRole
+          name: system:auth-delegator
+        subjects:
+        - kind: ServiceAccount
+          name: vault-cert-manager-auth
+          namespace: cert-manager
+        EOF
+      tags:
+        - vault 
+        - vault-auth
+        - vault-issuer
+    # Enable kubernetes authentication
+    # Configure kubernetes auth using environment variables and secrets written inside the vault pod by kubernetes
+    # Enable the kv1 secrets engine on the path /secrets
+    # Enable PKI engine for base_domain and private_base_domain and generate root certificates
+    # Note: KV1 is needed for vault-crd to be able to create certs from JSON data stored by payment manager
+    # Create the vault policy
+    # Bind the kubernetes service account to the vault policy
+    - name: Configure vault secrets and kubernetes authentication
+      shell: |
+        VAULT_ROOT_TOKEN=$(cat vault-keys.json | jq -r ".root_token")
+        kubectl exec vault-0 -- vault login $VAULT_ROOT_TOKEN
+        
+        kubectl exec vault-0 -- vault auth enable kubernetes 2>/dev/null
+        
+        kubectl exec vault-0 -- sh -c 'vault write auth/kubernetes/config \
+          token_reviewer_jwt="$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" \
+          kubernetes_host="https://${KUBERNETES_PORT_443_TCP_ADDR}:443" \
+          kubernetes_ca_cert=@/var/run/secrets/kubernetes.io/serviceaccount/ca.crt'
+
+        
+        kubectl exec vault-0 -- vault secrets enable --path=secrets kv
+        kubectl exec vault-0 -- vault secrets enable -path=pki-{{ base_domain }} pki
+        kubectl exec vault-0 -- vault secrets enable -path=pki-{{ private_base_domain }} pki
+        kubectl exec vault-0 -- vault write pki-{{ base_domain }}/root/generate/internal common_name={{ base_domain }} ttl=8760h -format=json > /tmp/{{ base_domain }}.ca.json
+        kubectl exec vault-0 -- vault write pki-{{ private_base_domain }}/root/generate/internal common_name={{ private_base_domain }} ttl=8760h -format=json > /tmp/{{ private_base_domain }}.ca.json
+        kubectl cp vault-0:/tmp/{{ base_domain }}.ca.json {{ base_domain }}.ca.json
+        kubectl cp vault-0:/tmp/{{ private_base_domain }}.ca.json {{ private_base_domain }}.ca.json
+
+        kubectl exec vault-0 -- vault write pki-{{ base_domain }}/roles/{{ base_domain }} allowed_domains={{ base_domain }} allow_subdomains=true max_ttl=72h require_cn=false
+        kubectl exec vault-0 -- vault write pki-{{ private_base_domain }}/roles/{{ private_base_domain }} allowed_domains={{ private_base_domain }} allow_subdomains=true max_ttl=72h require_cn=false
+        
+        kubectl cp "{{ tmpvalues.path }}/vault.policy.hcl" vault-0:/tmp/policy.hcl
+        kubectl exec vault-0 -- vault write sys/policy/vault-crd-policy policy=@/tmp/policy.hcl
+
+        
+        kubectl exec vault-0 -- vault write auth/kubernetes/role/vault-crd-auth \
+          bound_service_account_names=vault-crd-serviceaccount \
+          bound_service_account_namespaces=vault-crd \
+          policies=vault-crd-policy \
+          ttl=1h
+
+      tags:
+        - vault
+        - vault-auth
+    - name: Download vault CA root certs
+      fetch: 
+        src: "/tmp/{{ item }}"
+        dest: "../{{ item }}"
+        flat: yes
+      with_items:
+        - "{{ base_domain }}.ca.json"
+        - "{{ private_base_domain }}.ca.json"
+      tags:
+        - vault-auth
+    - name: Install vault-crd
+      shell: | 
+        helm repo add vault-crd https://raw.githubusercontent.com/DaspawnW/vault-crd-helm/master
+        helm upgrade --install --create-namespace -n vault-crd vault-crd vault-crd/vault-crd -f  "{{ tmpvalues.path }}/vault-crd.values.yml"
+      tags: 
+        - vault-crd
+
+    #
+    # Enable cert-manager integration
+    #
+    - name: Create vault policy and role for cert-manager
+      shell: |
+        kubectl cp "{{ tmpvalues.path }}/vault.cert-manager.policy.hcl" vault-0:/tmp/cert-manager.policy.hcl
+        kubectl exec vault-0 -- vault write sys/policy/vault-cert-manager-policy policy=@/tmp/cert-manager.policy.hcl
+
+        kubectl exec vault-0 -- vault write auth/kubernetes/role/vault-cert-manager-auth \
+          bound_service_account_names=vault-cert-manager-auth \
+          bound_service_account_namespaces=cert-manager \
+          policies=vault-cert-manager-policy \
+          ttl=1h
+      tags:
+        - vault-issuer
+    # the issuer for cert-manager needs to be configured with the name of the secret containing the service account token, so look it up
+    - name: Get cert-manager service account secret ref
+      shell: |
+        kubectl get serviceaccount vault-cert-manager-auth -n cert-manager -o json | jq -r ".secrets[].name"
+      register: get_secret_ref
+      tags:
+        - vault-issuer
+    - name: Set secret ref as fact
+      set_fact:
+        vault_cert_manager_auth_ref: "{{ get_secret_ref.stdout }}"
+      tags:
+        - vault-issuer
+    # The vault issuer yaml needs to contain a variable for vault_cert_manager_auth_ref which is set above
+    - name: Upload vault issuer yaml
+      template: 
+        src: "{{ lookup('first_found', findvalues) }}"
+        dest: "{{ tmpvalues.path }}/{{ item }}.yml"
+      vars:
+        findvalues:
+          - "templates/{{ cloud_provider }}/{{ item }}.yml.j2"
+          - "templates/{{ item }}.yml.j2"
+      with_items:
+          - vault-issuer
+      tags:
+        - vault-issuer
+    - name: Create vault issuer for cert-manager
+      shell: |
+        kubectl apply -f "{{ tmpvalues.path }}/vault-issuer.yml"
+      tags:
+        - vault-issuer

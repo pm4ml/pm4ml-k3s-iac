@@ -1,0 +1,124 @@
+- hosts: k3s_master
+  become: yes
+  collections:
+    - community.kubernetes
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  roles:
+    - geerlingguy.helm
+  vars:
+    dfsp_access_lb_hostname: "{{ ingress_internal_hostname if pm4ml_dfsp_internal_access_only == 'yes' else ingress_external_hostname }}"
+    switch_access_lb_hostname: "{{ ingress_external_hostname }}"
+    internal_pm4ml_ingress: "{{ true if internal_pm4ml_instance == 'yes' else false }}"
+    mojaloop_simulator_core_connector_enabled: "{{ true if install_pm4ml_ml_simulator_cc == 'yes' else false }}"
+    core_connector_service_name: "{{ 'mojaloop-simulator-core-connector' if install_pm4ml_ml_simulator_cc == 'yes' else ml_cc_service_name }}"
+  tasks:
+    - name: Bare include (free-form)
+      include_vars:
+        file: "{{ pm4ml_config_file }}"
+        name: pm4ml
+      tags:
+        - pm4ml
+    - name: Create certs directory
+      file:
+        path: "{{ pm4ml_client_cert_remote_dir }}"
+        state: directory
+      tags:
+        - pm4ml
+        - pm4ml-config
+    - name: Create temporary directory
+      tempfile:
+        state: directory
+        suffix: values
+      register: tmpvalues
+      tags:
+        - pm4ml
+        - pm4ml-client-certs
+    - name: Set keycloak pw in vault
+      vars:
+        rndpass: "{{ lookup('password', '/dev/null length=12 chars=ascii_letters,digits') }}"
+      shell: |
+        VAULT_ROOT_TOKEN=$(cat vault-keys.json | jq -r ".root_token")
+        kubectl exec vault-0 -- vault login $VAULT_ROOT_TOKEN
+        KEYCLOAKPWCOUNT=$(kubectl exec vault-0 -- vault list -format=json secrets/keycloak/ | jq '.[] | select(. | contains("{{ item.key }}"))' | wc -l)
+        if [ $KEYCLOAKPWCOUNT = 0 ]; then
+          kubectl exec vault-0 -- vault write secrets/keycloak/{{ item.key }} pw={{ rndpass }}
+          KEYCLOAKPW={{ rndpass }}
+        else
+          KEYCLOAKPW=$(kubectl exec vault-0 -- vault read -field=pw secrets/keycloak/{{ item.key }})
+        fi
+        echo $KEYCLOAKPW
+      tags:
+        - pm4ml
+      register: keycloak_pws
+      loop: "{{ pm4ml | dict2items }}"
+      loop_control:
+        label: "{{ item.key }}"
+    - name: Upload pm4ml files
+      template:
+        src: "templates/pm4ml.values.yml.j2"
+        dest: "{{ tmpvalues.path }}/{{ item.key }}.pm4ml.values.yml"
+      loop: "{{ pm4ml | dict2items }}"
+      loop_control:
+        label: "{{ item.key }}"
+      tags:
+        - pm4ml
+    - name: Upload pm4ml static files
+      template:
+        src: "{{ pm4ml_static_config_file }}"
+        dest: "{{ tmpvalues.path }}/static.pm4ml.values.yml"
+      tags:
+        - pm4ml
+    - name: Upload pm4ml crd files
+      template:
+        src: "templates/pm4ml-crd.yml.j2"
+        dest: "{{ tmpvalues.path }}/{{ item.key }}.pm4ml-crd.yml"
+      loop: "{{ pm4ml | dict2items }}"
+      loop_control:
+        label: "{{ item.key }}"
+      tags:
+        - pm4ml
+    - name: Upload pm4ml cc files if needed
+      template:
+        src: "{{ additional_ml_cc_values_file }}"
+        dest: "{{ tmpvalues.path }}/{{ item.key }}.pm4mlcc.values.yml"
+      loop: "{{ pm4ml | dict2items }}"
+      loop_control:
+        label: "{{ item.key }}"
+      tags:
+        - pm4ml
+      when: install_pm4ml_ml_simulator_cc != 'yes'
+    - name: Deploy pm4ml helm chart
+      shell: |
+        helm repo add pm https://pm4ml.github.io/mojaloop-payment-manager-helm/repo
+        helm repo update
+        VAULT_ROOT_TOKEN=$(cat vault-keys.json | jq -r ".root_token")
+        KEYCLOAKPW=$(kubectl exec vault-0 -- vault read -field=pw secrets/keycloak/{{ item.key }})
+        sed -i "s/##KEYCLOAK_PASSWORD##/${KEYCLOAKPW}/g" {{ tmpvalues.path }}/{{ item.key }}.pm4ml.values.yml
+        helm upgrade --create-namespace --namespace {{ item.key }} --install {{ item.key }} pm/mojaloop-payment-manager --version {{ pm4ml_helm_version }} -f "{{ tmpvalues.path }}/{{ item.key }}.pm4ml.values.yml" -f "{{ tmpvalues.path }}/static.pm4ml.values.yml" {{ ('-f ' + tmpvalues.path + '/' + item.key + '.pm4mlcc.values.yml') if install_pm4ml_ml_simulator_cc != 'yes' }}
+        kubectl apply -n {{ item.key }} -f "{{ tmpvalues.path }}/{{ item.key }}.pm4ml-crd.yml"
+      loop: "{{ pm4ml | dict2items }}"
+      loop_control:
+        label: "{{ item.key }}"
+      tags:
+        - pm4ml
+    - name: Wait for client certs to be created
+      shell: |
+        kubectl -n {{ item.key }} wait --for=condition=ready certificate/{{ item.key }}-clientcert --timeout=180s
+      loop: "{{ pm4ml | dict2items }}"
+      loop_control:
+        label: "{{ item.key }}"
+      tags:
+        - pm4ml
+        - pm4ml-client-certs
+    - name: Download client certs
+      shell: |
+        kubectl get secret -n {{ item.key }} {{ item.key }}-clientcert-tls -o jsonpath={.data.ca\\.crt} | base64 --decode > {{ pm4ml_client_cert_remote_dir }}/{{ item.key }}-ca-cert.pem
+        kubectl get secret -n {{ item.key }} {{ item.key }}-clientcert-tls -o jsonpath={.data.tls\\.crt} | base64 --decode > {{ pm4ml_client_cert_remote_dir }}/{{ item.key }}-client-cert.pem
+        kubectl get secret -n {{ item.key }} {{ item.key }}-clientcert-tls -o jsonpath={.data.tls\\.key} | base64 --decode > {{ pm4ml_client_cert_remote_dir }}/{{ item.key }}-client-key.pem
+      loop: "{{ pm4ml | dict2items }}"
+      loop_control:
+        label: "{{ item.key }}"
+      tags:
+        - pm4ml
+        - pm4ml-client-certs

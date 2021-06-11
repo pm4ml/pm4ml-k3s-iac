@@ -1,0 +1,26 @@
+grafana:
+  enabled: true
+  ingress:
+    enabled: true
+    annotations:
+      cert-manager.io/cluster-issuer: letsencrypt
+      external-dns.alpha.kubernetes.io/target: {{ ingress_external_hostname }}
+      kubernetes.io/ingress.class: {{ ingress_class }}
+      kubernetes.io/ingress.provider: {{ ingress_class }}
+    hosts: 
+      - {{ grafana_domain }}
+    tls:
+      - secretName: grafana-tls
+        hosts: 
+          - {{ grafana_domain }}
+prometheus:
+  enabled: true
+  alertmanager:
+    persistentVolume:
+      enabled: false
+  server:
+    persistentVolume:
+      enabled: false
+loki:
+  persistence:
+    enabled: true

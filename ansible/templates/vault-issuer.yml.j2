@@ -1,0 +1,31 @@
+apiVersion: cert-manager.io/v1alpha2
+kind: ClusterIssuer
+metadata:
+  name: vault-issuer
+spec:
+  vault:
+    server: http://vault.default
+    path: pki-{{ base_domain }}/sign/{{ base_domain }}
+    auth:
+      kubernetes:
+        mountPath: /v1/auth/kubernetes
+        role: vault-cert-manager-auth
+        secretRef:
+          name: {{ vault_cert_manager_auth_ref }}
+          key: token
+--- 
+apiVersion: cert-manager.io/v1alpha2
+kind: ClusterIssuer
+metadata:
+  name: vault-issuer-internal
+spec:
+  vault:
+    server: http://vault.default
+    path: pki-{{ private_base_domain }}/sign/{{ private_base_domain }}
+    auth:
+      kubernetes:
+        mountPath: /v1/auth/kubernetes
+        role: vault-cert-manager-auth
+        secretRef:
+          name: {{ vault_cert_manager_auth_ref }}
+          key: token

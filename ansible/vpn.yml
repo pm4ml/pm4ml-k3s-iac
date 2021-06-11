@@ -1,0 +1,29 @@
+- hosts: k3s_master
+  become: yes
+  collections:
+    - community.kubernetes
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  roles:
+    - geerlingguy.helm
+  tasks:
+    - name: Create temporary directory
+      tempfile:
+        state: directory
+        suffix: values
+      register: tmpvalues
+      tags:
+        - wireguard
+    - name: Upload values file
+      template: 
+        src: "templates/wireguard.values.yml.j2"
+        dest: "{{ tmpvalues.path }}/wireguard.values.yml"
+      tags:
+        - wireguard
+    - name: Deploy helm chart
+      shell: |
+        helm repo add wireguard https://modusintegration.github.io/wireguard-helm/repo/
+        helm repo update
+        helm upgrade --create-namespace --namespace vpn --install wireguard wireguard/wireguard -f  "{{ tmpvalues.path }}/wireguard.values.yml"
+      tags:
+        - wireguard

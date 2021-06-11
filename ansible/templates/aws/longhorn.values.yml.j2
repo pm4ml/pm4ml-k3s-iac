@@ -1,0 +1,8 @@
+persistence:
+  defaultClass: true
+  # Set the number of replicas based on how many nodes are deployed; https://longhorn.io/docs/0.8.1/references/settings/#default-replica-count
+  defaultClassReplicaCount: {% if agent_node_count | int == 0 %}1{% elif agent_node_count | int < 3 %}{{ agent_node_count }}{% else %}{{ 3 }}{% endif %}
+
+defaultSettings:
+  backupTarget: "s3://{{ longhorn_backups_bucket_name }}@{{ region }}/"
+  backupTargetCredentialSecret: "longhorn-backups-aws-secret"

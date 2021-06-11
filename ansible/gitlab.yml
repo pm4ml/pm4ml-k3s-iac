@@ -1,0 +1,209 @@
+- hosts: k3s_master
+  become: yes
+  collections:
+    - community.kubernetes
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  roles:
+    - geerlingguy.helm
+  tasks:
+    - name: Create temporary directory
+      tempfile:
+        state: directory
+        suffix: values
+      register: tmpvalues
+      tags:
+        - gitlab_cluster
+        - gitlab_group
+        - gitlab_install
+    - name: Update apt cache
+      shell: apt update
+    - name: Install pip
+      package:
+        name: python3-pip
+    - name: Upload helm values
+      template: 
+        src: "templates/gitlab.values.yml.j2"
+        dest: "{{ tmpvalues.path }}/gitlab.values.yml"
+      tags:
+        - gitlab_install
+    - name: Deploy gitlab helm chart
+      shell: |
+        helm repo add gitlab https://charts.gitlab.io/; \
+        helm repo update; \
+        helm upgrade --install gitlab gitlab/gitlab --timeout 600s -f "{{ tmpvalues.path }}/gitlab.values.yml"
+      tags:
+        - gitlab_install
+  # Install python-gitlab dependency which is needed for the various ansible gitlab_* tasks (v1.12.1 is the latest supported)
+    - name: Install python-gitlab
+      pip:
+        name: python-gitlab
+        version: 1.12.1
+      tags:
+        - gitlab_group
+    - name: Install openshift python library # Needed for k8s_info
+      pip:
+        name: openshift
+    - name: Wait for gitlab webservice to start 
+      shell: |
+        kubectl --kubeconfig {{ kubeconfig_path }} wait --for=condition=ready pod -l app=webservice,release=gitlab --timeout=300s
+      failed_when: "'condition met' not in kubewait.stdout" # kubectl wait sometimes times out and returns an error code even though the condition was met, so check the output for failure status
+      register: kubewait
+    # - name: Find webservice pod # We'll use the webservice pod to exec gitlab rails commands
+    #   k8s_info:
+    #     kubeconfig: "{{ kubeconfig_path }}"
+    #     kind: Pod
+    #     label_selectors:
+    #       - release = gitlab
+    #       - app = webservice
+    #     namespace: default
+    #   register: pod_list
+    #   become: yes
+    #   tags: 
+    #     - gitlab_group
+    #     - gitlab_cluster
+    #     - gitlab_settings
+    # Generate an API token using ansible password lookup
+    - name: Generate API token
+      set_fact:
+        gitlab_api_token: "{{ lookup('password', '/dev/null length=20 chars=ascii_letters,digits') }}"
+      tags: 
+        - gitlab_group
+        - gitlab_cluster
+        - gitlab_settings
+      # set the token using rails console by exec'ing to the webservice pod
+      # This would ideally be done using k8s_exec, but that throws 404 errors ¯\_(ツ)_/¯
+    - name: Set GitLab API Token 
+      shell: |
+        pod_name=$(kubectl get pods --kubeconfig {{ kubeconfig_path }} -l app=webservice,release=gitlab -o name)
+        kubectl --kubeconfig {{ kubeconfig_path }} exec -i -n default -c webservice $pod_name -- bash -c "cd /srv/gitlab && bundle exec rails runner -e production \"{{ set_api_token_command }}\""
+      vars:
+        set_api_token_command: "token = User.find_by_username('root').personal_access_tokens.find_or_create_by(name: 'Ansible', impersonation: false, scopes: [:api, :write_repository], expires_at: Time.now + 1.day); token.set_token('{{ gitlab_api_token }}'); token.save!"
+      tags: 
+        - gitlab_group
+        - gitlab_cluster
+        - gitlab_settings
+    - name: Wait for gitlab api availability
+      wait_for:
+        host: "gitlab.{{ base_domain }}"
+        sleep: 10
+        state: started
+        port: 443
+        timeout: 600
+    - name: Create GitLab Group
+      gitlab_group:
+        api_url: "{{ gitlab_url }}"
+        validate_certs: False # Ignore cert validation errors so that we can connect before the letsencrypt cert has been provisioned
+        api_token: "{{ gitlab_api_token }}"
+        name: "{{ gitlab_group_name }}"
+        visibility: internal
+        state: present
+      register: gitlab_group
+      tags: 
+        - gitlab_group
+  # TODO: Automate adding additional gitlab users to the group and sending their password via email
+    - name: Create GitLab Project
+      gitlab_project:
+        api_url: "{{ gitlab_url }}"
+        validate_certs: False # Ignore cert validation errors so that we can connect before the letsencrypt cert has been provisioned
+        api_token: "{{ gitlab_api_token }}"
+        name: k3s-bootstrap
+        group: "{{ gitlab_group_name }}"
+      tags: 
+        - gitlab_group
+    # Import this repo into the gitlab instance so that changes are tracked
+    # TODO: add a condition so that this only runs the first time,
+    #       but then have a task that keeps the repo up to date on future runs?
+    # - name: Import bootstrap into GitLab
+    #   delegate_to: localhost
+    #   become: no
+    #   shell: |
+    #     cd ..
+    #     git remote remove gitlab 2> /dev/null
+    #     git remote add gitlab https://root:{{ gitlab_api_token }}@gitlab.{{ base_domain }}/{{ gitlab_group_name }}/k3s-bootstrap.git
+    #     git config http.sslVerify false
+    #     git add . 
+    #     git add --force .env
+    #     git commit -m "{{ client }} deployment"
+    #     git push -u gitlab master
+    #   tags: 
+    #     - gitlab_group
+    ###
+    # Get the kubernetes cluster CA Cert and create a service account for Gitlab
+    # This will then be used to add the kubernetes cluster to gitlab for deployment
+    ###
+    - name: Find service account token
+      shell: |
+        kubectl get secret --kubeconfig "{{ kubeconfig_path }}" -n default -o name --no-headers | grep default-token | cut -f 2 -d /
+      register: default_token
+      changed_when: false
+      tags:
+        - gitlab_cluster
+    - name: Get CA cert
+      shell: |
+        kubectl get secret --kubeconfig "{{ kubeconfig_path }}"  -n default {{ default_token.stdout }} -o jsonpath="{['data']['ca\.crt']}" | base64 --decode
+      register: ca_cert
+      changed_when: false
+      tags:
+        - gitlab_cluster
+    - name: Upload service account yaml
+      template: 
+        src: "templates/gitlab-admin-service-account.yml.j2"
+        dest: "{{ tmpvalues.path }}/gitlab-admin-service-account.yml"
+      tags: 
+        - gitlab_cluster
+    - name: Apply Gitlab service account
+      shell:
+        kubectl --kubeconfig "{{ kubeconfig_path }}" apply -f "{{ tmpvalues.path }}/gitlab-admin-service-account.yml"
+      changed_when: false
+      tags: 
+        - gitlab_cluster
+    - name: Get Gitlab admin account token
+      shell:
+        kubectl --kubeconfig "{{ kubeconfig_path }}" -n kube-system get secret -o jsonpath={.data.token} $(kubectl --kubeconfig "{{ kubeconfig_path }}" -n kube-system get secret | grep gitlab-admin | awk '{print $1}')
+      register: gitlab_k8s_token
+      changed_when: false
+      tags: 
+        - gitlab_cluster
+    ###
+    # Add the kubernetes cluster to gitlab if it doesn't already exist
+    ###
+    # - name: Allow gitlab to connect to local services
+    #   uri:
+    #     url: "{{ gitlab_url }}/api/v4/application/settings?allow_local_requests_from_web_hooks_and_services=true"
+    #     method: PUT      
+    #     headers:
+    #       Private-Token: "{{ gitlab_api_token }}"
+    #   tags: 
+    #     - gitlab_settings
+    # - name: Get existing clusters
+    #   uri: 
+    #     url: "{{ gitlab_url }}/api/v4/groups/{{ gitlab_group_name }}/clusters"
+    #     method: GET
+    #     headers:
+    #       Private-Token: "{{ gitlab_api_token }}"
+    #   register: group_clusters
+    #   tags: 
+    #     - gitlab_cluster
+    # - name: Add cluster if not exists
+    #   uri: 
+    #     url: "{{ gitlab_url }}/api/v4/groups/{{ gitlab_group_name }}/clusters/user"
+    #     method: POST
+    #     body_format: json
+    #     headers:
+    #       Private-Token: "{{ gitlab_api_token }}"
+    #       Accept: application/json
+    #     body: 
+    #       id: k3s-cluster
+    #       name: "k3s cluster"
+    #       platform_kubernetes_attributes:
+    #         api_url: "https://{{ groups['k3s_master'][0] }}:6443"
+    #         token: '{{ gitlab_k8s_token.stdout | string | b64decode }}'
+    #         ca_cert: '{{ ca_cert.stdout | regex_replace("\\n", "\n") }}'
+    #       managed: no
+    #       enabled: true
+    #   failed_when: add_cluster.status != 201
+    #   register: add_cluster
+    #   when: "'k3s cluster' not in group_clusters.json | json_query('[].name')"
+    #   tags:
+    #     - gitlab_cluster

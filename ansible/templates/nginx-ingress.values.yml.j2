@@ -1,0 +1,9 @@
+controller:
+  autoscaling: 
+    enabled: false
+  publishService:
+    enabled: false
+  extraArgs:
+    publish-status-address: {{ ingress_external_hostname }}
+  config:
+    proxy-buffer-size: "16k"

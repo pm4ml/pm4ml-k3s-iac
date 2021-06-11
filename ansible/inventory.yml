@@ -1,0 +1,55 @@
+all:
+  vars: 
+    ansible_ssh_private_key_file: ../ssh-key
+    ansible_python_interpreter: /usr/bin/python3
+    ansible_ssh_extra_args: '-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
+    use_bastion: true
+    bastion_proxy_command: -o ProxyCommand="ssh -o StrictHostKeyChecking=no -W %h:%p -i {{ ansible_ssh_private_key_file }} {{ ansible_ssh_user }}@{{ hostvars[inventory_hostname].groups.bastion[0] }}"
+    # Miscellaneous config
+    gitlab_group_name: "IaC"
+    ingress_class: '{{ ingress_name }}'
+    ingress_external_hostname: "{{ {'onprem': onprem_external_hostname, 'aws': external_lb_hostname }[cloud_provider] | default('') }}"
+    ingress_internal_hostname: "{{ {'onprem': onprem_external_hostname, 'aws': internal_lb_hostname }[cloud_provider] | default('') }}"
+    storage_class_name: "longhorn"
+    monitoring_stack: "efk" # Default to use efk if monitoring stack variable is not defined in config, for backwards compatibility, this will be overwritten by variables defined in envvars.yml 
+    # Domain names and urls
+    base_domain: '{{ client | regex_replace("-", "") }}.{{ domain }}'
+    gitlab_url: https://gitlab.{{ base_domain }}
+    grafana_domain: 'grafana.{{ base_domain }}'
+    kibana_domain: 'kibana.{{ base_domain }}'
+    private_base_domain: '{{ client | regex_replace("-", "") }}.{{ domain }}.internal'
+    vault_domain: 'vault.{{ base_domain }}'
+    vpn_endpoint: 'vpn.{{ base_domain }}'
+    # versioning
+    k3s_version: "v1.18.6+k3s1"
+    apm_version: "7.7.1"
+    certmanager_version: "0.15.2"
+    elasticsearch_version: "7.4.0" 
+    fluentd_elasticsearch_version: "9.6.2" # v3.0.4
+    grafana_version: "5.6.1" #  grafana v7.1.1
+    kibana_version: "7.4.0" # kibana version must be a version which is compatible with elastic search, see https://www.elastic.co/support/matrix#matrix_compatibility
+    loki_version: "2.3.1" # Loki stack, see https://github.com/grafana/helm-charts/blob/loki-stack-2.3.1/charts/loki-stack/requirements.yaml for versions
+    prometheus_version: "11.15.0" # last helm chart with prometheus v2.20.0
+    vault_version: "0.9.0" # helm chart version with app version 1.6.1
+    # --------------
+bastion:
+  vars:
+    kubeconfig_path: /home/{{ ansible_ssh_user }}/kubeconfig
+k3s_master:
+  vars:
+    ansible_ssh_common_args: "{{ bastion_proxy_command if use_bastion | bool else '' }}"
+    kubeconfig_path: /etc/rancher/k3s/k3s.yaml
+k3s_node:
+  vars:
+    ansible_ssh_common_args: "{{ bastion_proxy_command if use_bastion | bool else '' }}"
+
+haproxy_primary:
+  vars:
+    ansible_ssh_common_args: "{{ bastion_proxy_command if use_bastion | bool else '' }}"
+    keepalived_priority: 100
+    keepalived_device: eno1
+haproxy_secondary:
+  vars: 
+    ansible_ssh_common_args: "{{ bastion_proxy_command if use_bastion | bool else '' }}"
+    keepalived_priority: 101  
+    keepalived_device: eno1

@@ -1,0 +1,96 @@
+#jinja2: lstrip_blocks: "True"
+global
+        log 127.0.0.1   local0
+        log 127.0.0.1   local1 notice
+        log 127.0.0.1   local0 info
+        log-tag haproxy
+        maxconn 10000
+        chroot /etc/haproxy
+        user haproxy
+        group haproxy
+        daemon
+        #debug
+        #quiet
+
+        # Enable stats through socket in order to monitor HAProxy through Zabbix
+        stats socket /run/haproxy.sock mode 666 level user
+        stats timeout 2m
+
+        #Sets the maximum size of the Diffie-Hellman parameters used for generating the ephemeral/temporary Diffie-Hellman key in case of DHE key exchange
+        tune.ssl.default-dh-param 1024
+
+        # Disable SSLv3 everywhere
+        ssl-default-bind-options no-sslv3
+
+        # Cipher list to use
+        ssl-default-bind-ciphers ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES128-SHA256:ECDHE-RSA-AES128-SHA256:ECDHE-ECDSA-AES128-SHA:ECDHE-RSA-AES256-SHA384:ECDHE-RSA-AES128-SHA:ECDHE-ECDSA-AES256-SHA384:ECDHE-ECDSA-AES256-SHA:ECDHE-RSA-AES256-SHA:DHE-RSA-AES128-SHA256:DHE-RSA-AES128-SHA:DHE-RSA-AES256-SHA256:DHE-RSA-AES256-SHA:ECDHE-ECDSA-DES-CBC3-SHA:ECDHE-RSA-DES-CBC3-SHA:EDH-RSA-DES-CBC3-SHA:AES128-GCM-SHA256:AES256-GCM-SHA384:AES128-SHA256:AES256-SHA256:AES128-SHA:AES256-SHA:DES-CBC3-SHA:!DSS
+
+        # Increase TLS session cache size and lifetime to avoid computing too many symmetric keys
+        tune.ssl.cachesize 100000
+        tune.ssl.lifetime 600
+
+        # Set up a TLS record to match a TCP segment size, in order to improve client side rendering of content:
+        tune.ssl.maxrecord 1460
+
+defaults
+        log     global
+
+        # Default mode: HTTP
+        mode    http
+        option  httplog
+
+        # Reduces latency between HAProxy and users closing connections but maintaining keep-alives
+        option http-server-close
+
+        option  dontlognull
+        retries 3
+        option redispatch
+
+        # Max connections
+        maxconn 2000
+
+        # Timeouts
+        timeout connect 5000
+        timeout client  50000
+        timeout server 50000
+
+listen stats 
+        bind {{ onprem_haproxy_virtual }}:1936
+
+        # Stats configuration
+        stats hide-version
+        stats enable
+        stats auth username:password
+        stats uri /
+        stats refresh 30s
+
+frontend www-http-web
+        bind {{ onprem_haproxy_virtual }}:80
+
+        # Default backend
+        default_backend web
+
+frontend www-https-web
+        bind {{ onprem_haproxy_virtual }}:443 ssl crt /etc/ssl/private/haproxy_frontend.pem
+
+        # Add X-Forward-For header
+        option forwardfor
+
+        # Default backend
+        default_backend web
+
+backend web
+        # HTTP CHECK to instances
+        option httpchk GET /healthz
+
+        balance roundrobin
+
+{% for host in groups['k3s_master'] %}
+        server master{{ loop.index }} {{ hostvars[host]['inventory_hostname'] }}:443 check ssl verify none
+{% endfor %}
+{% for host in groups['k3s_node'] %}
+        server node{{ loop.index }} {{ hostvars[host]['inventory_hostname'] }}:443 check ssl verify none
+{% endfor %}
+
+        http-request set-header X-Forwarded-Port %[dst_port]
+        http-request add-header X-Forwarded-Proto https if { ssl_fc }        

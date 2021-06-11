@@ -1,0 +1,25 @@
+image:
+  repository: modusbox/wireguard-helm
+  tag: alpine-0.1.1
+ingress:
+  enabled: true
+  hosts: 
+    - host: {{ vpn_endpoint }}
+  annotations:
+    external-dns.alpha.kubernetes.io/target: {{ ingress_external_hostname }}
+wireguard:
+  privatekey: {{lookup('file', '../../wireguard.private.key') }}
+  config: | 
+    [Interface]
+    Address = 192.168.100.1/24
+    ListenPort = 51820
+    PostUp = wg set %i private-key /etc/wireguard/wg0.key; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+    PostDown = iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE
+    SaveConfig = true
+
+    {% for i in range(1, (wireguard_client_count | int) + 1) -%}
+    [Peer]
+    # peer {{ i }}
+    PublicKey = {{ lookup('file', "../../wireguard.clients/client" + i | string + ".conf.public.key") }}
+    AllowedIPs = 192.168.100.{{ i | int + 1 }}/32 
+    {% endfor %}
