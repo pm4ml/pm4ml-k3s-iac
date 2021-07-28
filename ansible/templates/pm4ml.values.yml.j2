@@ -77,6 +77,7 @@ experience-api:
         - "*.{{ item.key }}.{{ item.value.pm4ml_subdomain }}"
 
 management-api:
+  serviceAccountName: {{ item.key }}-vault-pm4ml-auth
   imagePullCredentials: *imagePullCredentials
   env:
     cache_host: redis-master
@@ -116,8 +117,8 @@ mojaloop-simulator-core-connector:
   enabled: {{ mojaloop_simulator_core_connector_enabled }}
   imagePullCredentials: *imagePullCredentials
   env:
-    backendApplicationEndpoint: "http://sim-backend:3000"
-    outboundApplicationEndpoint: "http://{{ item.value.helm_release_name }}-mojaloop-connector:4001"
+    BACKEND_ENDPOINT: "http://sim-backend:3000"
+    MLCONN_OUTBOUND_ENDPOINT: "http://{{ item.value.helm_release_name }}-pm4ml-mojaloop-connector:4001"
   ingress:
     enabled: true
     hosts:
@@ -139,6 +140,7 @@ pm4ml-mojaloop-connector:
     DFSP_ID: *dfspId
     CACHE_HOST: redis-master
     JWS_SIGN: true
+    JWS_SIGNING_KEY_PATH: /jwsSigningKey/private.key
     VALIDATE_INBOUND_JWS: false
     PEER_ENDPOINT: "{{ item.value.extgw_fqdn }}:8243/fsp/1.0"
     OUTBOUND_MUTUAL_TLS_ENABLED: true
@@ -146,8 +148,21 @@ pm4ml-mojaloop-connector:
     OAUTH_TOKEN_ENDPOINT: "https://{{ item.value.extgw_fqdn }}:8243/token"
     OAUTH_CLIENT_KEY: "{{ item.value.extgw_client_key }}"
     OAUTH_CLIENT_SECRET: "{{ item.value.extgw_client_secret }}"
-    BACKEND_ENDPOINT: "{{ item.value.helm_release_name }}-mojaloop-simulator:4001/simapi"
+    BACKEND_ENDPOINT: "{{ item.value.helm_release_name }}-{{ core_connector_service_name }}:{{ core_connector_service_port }}"
+    MGMT_API_WS_URL: "{{ item.value.helm_release_name }}-management-api"
+  {% if item.value.jws_public_keys is defined %}
+  sharedJWSPubKeys:
+    {% for jws_pub_key_key, jws_pub_key_value in item.value.jws_public_keys.items() %}
+    {{ jws_pub_key_key | indent( width=4) }}: |-
+      {{ jws_pub_key_value | indent( width=6) }}
+    {% endfor %}
+  {% endif %}
   secrets:
+    {% if item.value.jws_private_key is defined %}
+    jws:
+      privateKey: |-
+        {{ item.value.jws_private_key | indent( width=8) }}
+    {% endif %}
     tls:
       outbound:
         cacert: |-

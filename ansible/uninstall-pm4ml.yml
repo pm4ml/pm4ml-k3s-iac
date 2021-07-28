@@ -1,0 +1,45 @@
+- hosts: k3s_master
+  become: yes
+  collections:
+    - community.kubernetes
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  roles:
+    - geerlingguy.helm
+  tasks:
+    - name: Bare include (free-form)
+      include_vars:
+        file: "{{ pm4ml_config_file }}"
+        name: pm4ml
+      tags:
+        - pm4ml
+    - name: Create temporary directory
+      tempfile:
+        state: directory
+        suffix: values
+      register: tmpvalues
+      tags:
+        - pm4ml
+        - pm4ml-client-certs
+    - name: Upload pm4ml crd files
+      template:
+        src: "templates/pm4ml-crd.yml.j2"
+        dest: "{{ tmpvalues.path }}/{{ item.key }}.pm4ml-crd.yml"
+      loop: "{{ pm4ml | dict2items }}"
+      loop_control:
+        label: "{{ item.key }}"
+      tags:
+        - pm4ml
+    - name: Delete pm4ml helm chart and related items in the k8s namespaces
+      shell: |
+        helm delete {{ item.key }} --namespace {{ item.key }}
+        kubectl delete -n {{ item.key }} -f "{{ tmpvalues.path }}/{{ item.key }}.pm4ml-crd.yml"
+        kubectl delete namespace {{ item.key }}
+        VAULT_ROOT_TOKEN=$(cat vault-keys.json | jq -r ".root_token")
+        kubectl exec vault-0 -- vault delete secrets/keycloak/{{ item.key }}
+      loop: "{{ pm4ml | dict2items }}"
+      loop_control:
+        label: "{{ item.key }}"
+      tags:
+        - pm4ml
+    

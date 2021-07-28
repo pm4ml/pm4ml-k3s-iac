@@ -12,6 +12,8 @@
     internal_pm4ml_ingress: "{{ true if internal_pm4ml_instance == 'yes' else false }}"
     mojaloop_simulator_core_connector_enabled: "{{ true if install_pm4ml_ml_simulator_cc == 'yes' else false }}"
     core_connector_service_name: "{{ 'mojaloop-simulator-core-connector' if install_pm4ml_ml_simulator_cc == 'yes' else ml_cc_service_name }}"
+    core_connector_service_port: "{{ '3003' if install_pm4ml_ml_simulator_cc == 'yes' else ml_cc_service_port }}"
+
   tasks:
     - name: Bare include (free-form)
       include_vars:
@@ -88,6 +90,17 @@
       tags:
         - pm4ml
       when: install_pm4ml_ml_simulator_cc != 'yes'
+
+    - name: Upload pm4ml vault policy files
+      template:
+        src: "templates/vault.pm4ml.policy.hcl.j2"
+        dest: "{{ tmpvalues.path }}/{{ item.key }}.vault.pm4ml.policy.hcl"
+      loop: "{{ pm4ml | dict2items }}"
+      loop_control:
+        label: "{{ item.key }}"
+      tags:
+        - pm4ml
+
     - name: Deploy pm4ml helm chart
       shell: |
         helm repo add pm https://pm4ml.github.io/mojaloop-payment-manager-helm/repo
@@ -102,6 +115,54 @@
         label: "{{ item.key }}"
       tags:
         - pm4ml
+
+    # build out vault auth
+    - name: Configure vault secrets and kubernetes authentication
+      shell: |
+        VAULT_ROOT_TOKEN=$(cat vault-keys.json | jq -r ".root_token")
+        kubectl exec vault-0 -- vault login $VAULT_ROOT_TOKEN
+        
+        
+        # Create the vault-pm4ml service account
+        cat <<EOF | kubectl apply -f - 
+        apiVersion: v1
+        kind: ServiceAccount
+        metadata:
+          name: {{ item.key }}-vault-pm4ml-auth
+          namespace: {{ item.key }}
+        EOF
+
+        # Add cluster role binding for the vault-pm4ml service account
+        cat <<EOF | kubectl apply -f -
+        apiVersion: rbac.authorization.k8s.io/v1beta1
+        kind: ClusterRoleBinding
+        metadata:
+          name: {{ item.key }}-pm-role-tknrvw-bind
+          namespace: default
+        roleRef:
+          apiGroup: rbac.authorization.k8s.io
+          kind: ClusterRole
+          name: system:auth-delegator
+        subjects:
+        - kind: ServiceAccount
+          name: {{ item.key }}-vault-pm4ml-auth
+          namespace: {{ item.key }}
+        EOF
+
+        kubectl cp "{{ tmpvalues.path }}/{{ item.key }}.vault.pm4ml.policy.hcl" vault-0:/tmp/policy.hcl
+        kubectl exec vault-0 -- vault write sys/policy/{{ item.key }}-vault-pm4ml-policy policy=@/tmp/policy.hcl
+        kubectl exec vault-0 -- vault write auth/kubernetes/role/{{ item.key }}-vault-pm4ml-auth \
+          bound_service_account_names={{ item.key }}-vault-pm4ml-auth \
+          bound_service_account_namespaces={{ item.key }} \
+          policies={{ item.key }}-vault-pm4ml-policy \
+          ttl=1h
+
+      loop: "{{ pm4ml | dict2items }}"
+      loop_control:
+        label: "{{ item.key }}"
+      tags:
+        - pm4ml   
+      
     - name: Wait for client certs to be created
       shell: |
         kubectl -n {{ item.key }} wait --for=condition=ready certificate/{{ item.key }}-clientcert --timeout=180s

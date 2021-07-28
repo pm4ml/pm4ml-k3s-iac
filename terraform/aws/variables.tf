@@ -39,7 +39,7 @@ variable "k3s_storage_endpoint" {
 }
 
 variable "vpc_cidr" {
-  default     = "10.105.0.0/16"
+  default     = "10.106.0.0/23"
   type        = string
   description = "CIDR Subnet to use for the VPC, will be split into multiple /24s for the required private and public subnets"
 }
@@ -150,8 +150,8 @@ locals {
   db_password     = var.db_password != null ? var.db_password : random_password.db_password.result
   db_node_count   = var.k3s_storage_endpoint != "sqlite" ? var.db_node_count : 0
   ssh_keys        = [] # This has been replaced with a dynamically generated key, but could be extended to allow passing additional ssh keys if needed
-  public_subnets  = [cidrsubnet(var.vpc_cidr, 8, 1), cidrsubnet(var.vpc_cidr, 8, 2), cidrsubnet(var.vpc_cidr, 8, 3)]
-  private_subnets = [cidrsubnet(var.vpc_cidr, 8, 4), cidrsubnet(var.vpc_cidr, 8, 5), cidrsubnet(var.vpc_cidr, 8, 6)]
+  public_subnets  = [cidrsubnet(var.vpc_cidr, 3, 1), cidrsubnet(var.vpc_cidr, 3, 2), cidrsubnet(var.vpc_cidr, 3, 3)]
+  private_subnets = [cidrsubnet(var.vpc_cidr, 3, 4), cidrsubnet(var.vpc_cidr, 3, 5), cidrsubnet(var.vpc_cidr, 3, 6)]
   public_zone_id  = var.create_public_zone == "yes" ? aws_route53_zone.public[0].zone_id : data.aws_route53_zone.public[0].zone_id
   private_zone_id  = var.create_private_zone == "yes" ? aws_route53_zone.private[0].zone_id : data.aws_route53_zone.private[0].zone_id
 }

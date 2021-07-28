@@ -12,7 +12,6 @@
 /wireguard.public.key
 /credentials
 /terraform/onprem/.terraform
-/.env*
 /vault-keys.json
 /kubeconfig
 **/.terraform.lock.hcl

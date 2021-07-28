@@ -93,7 +93,7 @@ create_public_zone?=yes
 create_private_zone?=yes
 onprem_configure_haproxy?=no
 letsencrypt_server?=production
-vpc_cidr?=10.105.0.0/16
+vpc_cidr?=10.106.0.0/23
 install_pm4ml_ml_simulator_cc?=yes
 install_mojaloop?=yes
 mojaloop_version?=10.6.0
@@ -108,6 +108,7 @@ additional_ml_cc_values_file?=/k3s-boot/cc_values.yaml
 pm4ml_helm_version?=2.0.0
 pm4ml_dfsp_internal_access_only?=no
 internal_pm4ml_instance?=no
+k3s_version?=v1.21.2+k3s1
 ##
 # Configuration variables
 ##
@@ -118,10 +119,10 @@ STATE_KEY=$(environment)/terraform.tfstate
 base_domain=$(subst -,,$(client)).$(domain)
 onprem_external_hostname?=$(base_domain)
 onprem_bastion_host?=none
+wg_dns=$(subst .0/23,,$(vpc_cidr)).2
 
 # used in terraform steps to set TF_VAR's
 tfvarset:= @export `sed -E 's/(.*)\=(.*)/TF_VAR_\1\="\\"\2\\""/' .env | xargs`; export AWS_PROFILE=$(AWS_PROFILE) 
-
 #
 # Markdown formatted content used by the doc target
 #
@@ -163,10 +164,10 @@ define wg_profile
 [Interface] 
 PrivateKey = $$clientkey
 Address = 192.168.100.$$clientIP/32
-DNS = 10.105.0.2
+DNS = $(wg_dns)
 [Peer]
 PublicKey = $$serverkey
-AllowedIPs = 10.105.0.0/16
+AllowedIPs = $(vpc_cidr)
 Endpoint = $$vpn_endpoint:51820
 PersistentKeepalive = 25
 endef
@@ -344,7 +345,6 @@ config: .env ## Run first-time configuration
 		agent_instance_type=$$(readConfigVar "K3s Agent instance type" "agent_instance_type" "$(agent_instance_type)")
 		agent_volume_size=$$(readConfigVar "K3s Agent volume size (GB)" "agent_volume_size" "$(agent_volume_size)")
 	fi
-
 	ingress_name=$$(readConfigVar "Ingress controller (nginx or traefik or ambassador)" "ingress_name" "$(ingress_name)")
 	monitoring_stack=$$(readConfigVar "Monitoring stack (efk or loki) [See README if unsure]" "monitoring_stack" "$(monitoring_stack)")
 	letsencrypt_email=$$(readConfigVar "Lets Encrypt Account Email" "letsencrypt_email" "$(letsencrypt_email)")
@@ -511,6 +511,9 @@ pm4ml: ## Install pm4ml using the helm chart via ansible
 	make ansible-playbook -- pm4ml.yml
 	make scp-master SRC_PATH=$(pm4ml_client_cert_remote_dir) DEST_PATH=$(pm4ml_client_cert_local_dir)
 
+uninstall-pm4ml: ## uninstall pm4ml using helm
+	@echo "$(GREEN)Uninstalling pm4ml"
+	make ansible-playbook -- uninstall-pm4ml.yml
 reconfigure: ## Re-run first-time configuration to change values as needed
 	@make -B config
 
@@ -632,8 +635,8 @@ wireguard.clients: ## Generate $wireguard_client_count number of client profiles
 		make wireguard.clients/client$$i.conf
 	done;
 
-wireguard: wireguard.public.key wireguard.clients ## Deploy wireguard vpn into the cluster
-	@make ansible-playbook -- vpn.yml
+wireguard: wireguard.public.key ##wireguard.clients ## Deploy wireguard vpn into the cluster
+	make ansible-playbook -- vpn.yml
 	echo "$(GREEN)Wireguard has been deployed, use the profiles found in the wireguard.clients directory to connect$(RESET)"
 
 

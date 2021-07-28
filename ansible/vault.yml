@@ -104,7 +104,7 @@
         apiVersion: rbac.authorization.k8s.io/v1beta1
         kind: ClusterRoleBinding
         metadata:
-          name: role-tokenreview-binding
+          name: vcrd-role-tokenreview-binding
           namespace: default
         roleRef:
           apiGroup: rbac.authorization.k8s.io
@@ -130,7 +130,7 @@
         apiVersion: rbac.authorization.k8s.io/v1beta1
         kind: ClusterRoleBinding
         metadata:
-          name: role-tokenreview-binding
+          name: cm-role-tokenreview-binding
           namespace: cert-manager
         roleRef:
           apiGroup: rbac.authorization.k8s.io
@@ -168,21 +168,22 @@
         kubectl exec vault-0 -- vault secrets enable --path=secrets kv
         kubectl exec vault-0 -- vault secrets enable -path=pki-{{ base_domain }} pki
         kubectl exec vault-0 -- vault secrets enable -path=pki-{{ private_base_domain }} pki
-        kubectl exec vault-0 -- vault write pki-{{ base_domain }}/root/generate/internal common_name={{ base_domain }} ttl=8760h -format=json > /tmp/{{ base_domain }}.ca.json
-        kubectl exec vault-0 -- vault write pki-{{ private_base_domain }}/root/generate/internal common_name={{ private_base_domain }} ttl=8760h -format=json > /tmp/{{ private_base_domain }}.ca.json
+        kubectl exec vault-0 -- vault secrets tune -max-lease-ttl=87600h pki-{{ base_domain }}
+        kubectl exec vault-0 -- vault secrets tune -max-lease-ttl=87600h pki-{{ private_base_domain }}
+        kubectl exec vault-0 -- vault write pki-{{ base_domain }}/root/generate/internal common_name={{ base_domain }} ttl=87600h -format=json > /tmp/{{ base_domain }}.ca.json
+        kubectl exec vault-0 -- vault write pki-{{ private_base_domain }}/root/generate/internal common_name={{ private_base_domain }} ttl=87600h -format=json > /tmp/{{ private_base_domain }}.ca.json
         kubectl cp vault-0:/tmp/{{ base_domain }}.ca.json {{ base_domain }}.ca.json
         kubectl cp vault-0:/tmp/{{ private_base_domain }}.ca.json {{ private_base_domain }}.ca.json
 
-        kubectl exec vault-0 -- vault write pki-{{ base_domain }}/roles/{{ base_domain }} allowed_domains={{ base_domain }} allow_subdomains=true max_ttl=72h require_cn=false
-        kubectl exec vault-0 -- vault write pki-{{ private_base_domain }}/roles/{{ private_base_domain }} allowed_domains={{ private_base_domain }} allow_subdomains=true max_ttl=72h require_cn=false
+        kubectl exec vault-0 -- vault write pki-{{ base_domain }}/roles/{{ base_domain }} allowed_domains={{ base_domain }} allow_subdomains=true max_ttl=1440h require_cn=false
+        kubectl exec vault-0 -- vault write pki-{{ private_base_domain }}/roles/{{ private_base_domain }} allowed_domains={{ private_base_domain }} allow_subdomains=true max_ttl=1440h require_cn=false
         
-        kubectl cp "{{ tmpvalues.path }}/vault.policy.hcl" vault-0:/tmp/policy.hcl
+        kubectl cp "{{ tmpvalues.path }}/vault-crd.policy.hcl" vault-0:/tmp/policy.hcl
         kubectl exec vault-0 -- vault write sys/policy/vault-crd-policy policy=@/tmp/policy.hcl
-
         
         kubectl exec vault-0 -- vault write auth/kubernetes/role/vault-crd-auth \
-          bound_service_account_names=vault-crd-serviceaccount \
-          bound_service_account_namespaces=vault-crd \
+          bound_service_account_names=vault-crd-auth \
+          bound_service_account_namespaces=default \
           policies=vault-crd-policy \
           ttl=1h
 

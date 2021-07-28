@@ -6,6 +6,8 @@
     KUBECONFIG: /etc/rancher/k3s/k3s.yaml
   roles:
     - geerlingguy.helm
+  vars:
+    vpc_cidr_var: "{{ vpc_cidr }}"
   tasks:
     - name: Create temporary directory
       tempfile:
@@ -14,6 +16,24 @@
       register: tmpvalues
       tags:
         - wireguard
+    - name: Set wg pw in vault
+      vars:
+        rndpass: "{{ lookup('password', '/dev/null length=12 chars=ascii_letters,digits') }}"
+      shell: |
+        VAULT_ROOT_TOKEN=$(cat vault-keys.json | jq -r ".root_token")
+        kubectl exec vault-0 -- vault login $VAULT_ROOT_TOKEN
+        WGPWCOUNT=$(kubectl exec vault-0 -- vault list -format=json secrets/wireguard/ | jq '.[] | select(. | contains("admin"))' | wc -l)
+        if [ $WGPWCOUNT = 0 ]; then
+          kubectl exec vault-0 -- vault write secrets/wireguard/admin pw={{ rndpass }}
+          WGPW={{ rndpass }}
+        else
+          WGPW=$(kubectl exec vault-0 -- vault read -field=pw secrets/wireguard/admin)
+        fi
+        echo $WGPW
+      tags:
+        - wireguard
+      register: wg_pw
+
     - name: Upload values file
       template: 
         src: "templates/wireguard.values.yml.j2"
@@ -22,8 +42,10 @@
         - wireguard
     - name: Deploy helm chart
       shell: |
-        helm repo add wireguard https://modusintegration.github.io/wireguard-helm/repo/
+        helm repo add wireguard https://place1.github.io/wg-access-server
         helm repo update
-        helm upgrade --create-namespace --namespace vpn --install wireguard wireguard/wireguard -f  "{{ tmpvalues.path }}/wireguard.values.yml"
+        VAULT_ROOT_TOKEN=$(cat vault-keys.json | jq -r ".root_token")
+        WGPW=$(kubectl exec vault-0 -- vault read -field=pw secrets/wireguard/admin)
+        helm upgrade --create-namespace --namespace vpn --install wireguard wireguard/wg-access-server --set config.adminPassword=$WGPW -f "{{ tmpvalues.path }}/wireguard.values.yml"
       tags:
         - wireguard

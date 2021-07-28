@@ -21,7 +21,7 @@ all:
     vault_domain: 'vault.{{ base_domain }}'
     vpn_endpoint: 'vpn.{{ base_domain }}'
     # versioning
-    k3s_version: "v1.18.6+k3s1"
+    k3s_version: '{{ k3s_version }}'
     apm_version: "7.7.1"
     certmanager_version: "0.15.2"
     elasticsearch_version: "7.4.0" 
