@@ -20,6 +20,7 @@ RUN apt-get update && apt-get install -y \
     zip \
     wireguard \
     make \
+    python3-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Install tools and configure the environment
@@ -36,7 +37,7 @@ RUN curl -O https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-
 RUN pip3 install --upgrade pip \
     && mkdir /workdir && cd /workdir \
     && mkdir keys \
-    && LC_ALL=C python3 -m pip install netaddr awscli "setuptools>=40.3.0" "ansible==2.9.14"
+    && python3 -m pip install netaddr awscli
 
-#RUN pip3 install "setuptools==40.3.0" "ansible==2.9.14"
+RUN LC_ALL=C pip3 install "setuptools==40.3.0" "ansible==2.9.14"
 COPY . k3s-boot
