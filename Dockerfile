@@ -5,7 +5,9 @@ ARG HELM_VERSION=v3.2.4
 
 
 # Update apt and Install dependencies
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y software-properties-common \
+    && apt-add-repository --yes --update ppa:ansible/ansible-2.9 \
+    && apt-get install -y \
     curl \
     dnsutils \
     git \
@@ -20,7 +22,7 @@ RUN apt-get update && apt-get install -y \
     zip \
     wireguard \
     make \
-    python3-dev \
+    ansible \
     && rm -rf /var/lib/apt/lists/*
 
 # Install tools and configure the environment
@@ -39,5 +41,5 @@ RUN pip3 install --upgrade pip \
     && mkdir keys \
     && python3 -m pip install netaddr awscli
 
-RUN LC_ALL=C pip3 install "setuptools==40.3.0" "ansible==2.10.7"
+RUN pip3 install "setuptools==40.3.0"
 COPY . k3s-boot
