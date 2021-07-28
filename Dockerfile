@@ -38,5 +38,5 @@ RUN pip3 install --upgrade pip \
     && mkdir keys \
     && python3 -m pip install netaddr awscli
 
-RUN pip3 install "setuptools>=40.3.0" "ansible==2.9.14"
+RUN pip3 install "setuptools==40.3.0" "ansible==2.9.14"
 COPY . k3s-boot
