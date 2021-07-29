@@ -5,8 +5,7 @@ ARG HELM_VERSION=v3.2.4
 
 
 # Update apt and Install dependencies
-RUN apt-get update && apt-get install -y software-properties-common \
-    && apt-add-repository --yes --update ppa:ansible/ansible-2.9 \
+RUN apt-get update \
     && apt-get install -y \
     curl \
     dnsutils \
@@ -14,7 +13,6 @@ RUN apt-get update && apt-get install -y software-properties-common \
     jq \
     libssl-dev \
     init \
-    python3 \
     python3-pip \
     screen \
     vim \
@@ -22,7 +20,6 @@ RUN apt-get update && apt-get install -y software-properties-common \
     zip \
     wireguard \
     make \
-    ansible \
     && rm -rf /var/lib/apt/lists/*
 
 # Install tools and configure the environment
@@ -36,10 +33,12 @@ RUN curl -LO https://storage.googleapis.com/kubernetes-release/release/${K8S_VER
 RUN curl -O https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 \
     && chmod +x ./get-helm-3 && ./get-helm-3 -v ${HELM_VERSION}
 
-RUN pip3 install --upgrade pip \
-    && mkdir /workdir && cd /workdir \
-    && mkdir keys \
-    && python3 -m pip install netaddr awscli
+#RUN pip3 install --upgrade pip \
+#    && mkdir /workdir && cd /workdir \
+#    && mkdir keys \
+#    && python3 -m pip install netaddr awscli
 
-RUN pip3 install "setuptools==40.3.0"
+RUN pip3 install "setuptools==40.3.0" "ansible==2.9.14"
+RUN mkdir /workdir && cd /workdir && mkdir keys && pip3 install netaddr awscli
+
 COPY . k3s-boot
