@@ -40,5 +40,6 @@ RUN curl -O https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-
 
 RUN pip3 install "setuptools==40.3.0" "ansible==2.9.14"
 RUN mkdir /workdir && cd /workdir && mkdir keys && pip3 install netaddr awscli
+RUN ansible-galaxy install codecap.kubectl
 
 COPY . k3s-boot
