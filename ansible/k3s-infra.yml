@@ -244,6 +244,7 @@
         helm upgrade --install portainer portainer/portainer --namespace portainer -f "{{ tmpvalues.path }}/portainer.values.yml"
       tags:
         - portainer
+      when: install_portainer == 'yes'
     #
     # Install argo for cd
     #

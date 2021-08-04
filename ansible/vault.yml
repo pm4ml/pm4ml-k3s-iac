@@ -66,6 +66,7 @@
       tags:
         - vault
         - vault-init
+      when: "'../vault-keys.json' is not exists"
     - name: Download vault keys
       fetch: 
         src: vault-keys.json
@@ -96,7 +97,7 @@
         kind: ServiceAccount
         metadata:
           name: vault-crd-auth
-          namespace: default
+          namespace: vault-crd
         EOF
 
         # Add cluster role binding for the vault-crd service account
@@ -113,7 +114,7 @@
         subjects:
         - kind: ServiceAccount
           name: vault-crd-auth
-          namespace: default
+          namespace: vault-crd
         EOF
 
         # Create the cert-manager service account
@@ -166,40 +167,28 @@
 
         
         kubectl exec vault-0 -- vault secrets enable --path=secrets kv
-        kubectl exec vault-0 -- vault secrets enable -path=pki-{{ base_domain }} pki
-        kubectl exec vault-0 -- vault secrets enable -path=pki-{{ private_base_domain }} pki
-        kubectl exec vault-0 -- vault secrets tune -max-lease-ttl=87600h pki-{{ base_domain }}
-        kubectl exec vault-0 -- vault secrets tune -max-lease-ttl=87600h pki-{{ private_base_domain }}
-        kubectl exec vault-0 -- vault write pki-{{ base_domain }}/root/generate/internal common_name={{ base_domain }} ttl=87600h -format=json > /tmp/{{ base_domain }}.ca.json
-        kubectl exec vault-0 -- vault write pki-{{ private_base_domain }}/root/generate/internal common_name={{ private_base_domain }} ttl=87600h -format=json > /tmp/{{ private_base_domain }}.ca.json
-        kubectl cp vault-0:/tmp/{{ base_domain }}.ca.json {{ base_domain }}.ca.json
-        kubectl cp vault-0:/tmp/{{ private_base_domain }}.ca.json {{ private_base_domain }}.ca.json
-
-        kubectl exec vault-0 -- vault write pki-{{ base_domain }}/roles/{{ base_domain }} allowed_domains={{ base_domain }} allow_subdomains=true max_ttl=1440h require_cn=false
-        kubectl exec vault-0 -- vault write pki-{{ private_base_domain }}/roles/{{ private_base_domain }} allowed_domains={{ private_base_domain }} allow_subdomains=true max_ttl=1440h require_cn=false
         
         kubectl cp "{{ tmpvalues.path }}/vault-crd.policy.hcl" vault-0:/tmp/policy.hcl
         kubectl exec vault-0 -- vault write sys/policy/vault-crd-policy policy=@/tmp/policy.hcl
         
         kubectl exec vault-0 -- vault write auth/kubernetes/role/vault-crd-auth \
           bound_service_account_names=vault-crd-auth \
-          bound_service_account_namespaces=default \
+          bound_service_account_namespaces=vault-crd \
           policies=vault-crd-policy \
           ttl=1h
 
       tags:
         - vault
         - vault-auth
-    - name: Download vault CA root certs
-      fetch: 
-        src: "/tmp/{{ item }}"
-        dest: "../{{ item }}"
-        flat: yes
-      with_items:
-        - "{{ base_domain }}.ca.json"
-        - "{{ private_base_domain }}.ca.json"
-      tags:
-        - vault-auth
+    # - name: Download vault CA root certs
+    #   fetch: 
+    #     src: "/tmp/{{ item }}"
+    #     dest: "../{{ item }}"
+    #     flat: yes
+    #   with_items:
+    #     - "{{ base_domain }}.ca.json"
+    #   tags:
+    #     - vault-auth
     - name: Install vault-crd
       shell: | 
         helm repo add vault-crd https://raw.githubusercontent.com/DaspawnW/vault-crd-helm/master
@@ -234,7 +223,7 @@
         vault_cert_manager_auth_ref: "{{ get_secret_ref.stdout }}"
       tags:
         - vault-issuer
-    # The vault issuer yaml needs to contain a variable for vault_cert_manager_auth_ref which is set above
+    #The vault issuer yaml needs to contain a variable for vault_cert_manager_auth_ref which is set above
     - name: Upload vault issuer yaml
       template: 
         src: "{{ lookup('first_found', findvalues) }}"
@@ -244,11 +233,11 @@
           - "templates/{{ cloud_provider }}/{{ item }}.yml.j2"
           - "templates/{{ item }}.yml.j2"
       with_items:
-          - vault-issuer
+          - vault.base.issuer
       tags:
         - vault-issuer
     - name: Create vault issuer for cert-manager
       shell: |
-        kubectl apply -f "{{ tmpvalues.path }}/vault-issuer.yml"
+        kubectl apply -f "{{ tmpvalues.path }}/vault.base.issuer.yml"
       tags:
         - vault-issuer

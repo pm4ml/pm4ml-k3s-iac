@@ -80,20 +80,26 @@ management-api:
   serviceAccountName: {{ item.key }}-vault-pm4ml-auth
   imagePullCredentials: *imagePullCredentials
   env:
-    cache_host: redis-master
-    envId: *mcmEnvironmentId
-    dfspId: *dfspId
-    mcmServerEndpoint: "{{ item.value.mcm_host_url }}/api"
-    mcmClientRefreshInterval: 60
-    p12PassPhrase: "{{ item.value.p12_pass_phrase }}"
-    dfspCsrPrivateKeyLength: 4096
-    dfspCsrPrivateKeyAlgorithm: rsa
-    wsUrl: "{{ item.value.helm_release_name }}-mojaloop-connector"
-    wsPort: 4003
+    CACHE_HOST: redis-master
+    ENV_ID: *mcmEnvironmentId
+    DFSP_ID: *dfspId
+    MCM_SERVER_ENDPOINT: "{{ item.value.mcm_host_url }}/api"
+    MCM_CLIENT_REFRESH_INTERVAL: 60
+    PRIVATE_KEY_LENGTH: 4096
+    PRIVATE_KEY_ALGORITHM: rsa
+    WS_URL: "{{ item.value.helm_release_name }}-mojaloop-connector"
+    WS_PORT: 4003
     AUTH_ENABLED: {{ item.value.mcm_auth_enabled }}
     AUTH_USER: {{ item.value.mcm_auth_user }}
     AUTH_PASS: {{ item.value.mcm_auth_pass }}
-    mcmClientsSecretsLocation: /tls
+    MCM_CLIENT_SECRETS_LOCATION: /tls
+    VAULT_ENDPOINT: http://vault.default.svc.cluster.local:8200
+    VAULT_AUTH_METHOD: K8S
+    VAULT_K8S_ROLE: {{ item.key }}-vault-pm4ml-auth
+    VAULT_K8S_TOKEN_FILE: /var/run/secrets/kubernetes.io/serviceaccount/token
+    VAULT_PKI_BASE_DOMAIN: {{ item.key }}.{{ base_domain }}
+    VAULT_MOUNT_PKI: pki-{{ base_domain }}-{{ item.key }}
+    VAULT_MOUNT_KV: secrets/pm4ml/{{ item.key }}
   ingress:
     enabled: false
 
@@ -113,12 +119,8 @@ prometheus:
         - targets:
           - "{{ item.value.helm_release_name }}-mojaloop-connector:4004"
 
-mojaloop-simulator-core-connector:
-  enabled: {{ mojaloop_simulator_core_connector_enabled }}
+mojaloop-core-connector:
   imagePullCredentials: *imagePullCredentials
-  env:
-    BACKEND_ENDPOINT: "http://sim-backend:3000"
-    MLCONN_OUTBOUND_ENDPOINT: "http://{{ item.value.helm_release_name }}-pm4ml-mojaloop-connector:4001"
   ingress:
     enabled: true
     hosts:
@@ -148,7 +150,7 @@ pm4ml-mojaloop-connector:
     OAUTH_TOKEN_ENDPOINT: "https://{{ item.value.extgw_fqdn }}:8243/token"
     OAUTH_CLIENT_KEY: "{{ item.value.extgw_client_key }}"
     OAUTH_CLIENT_SECRET: "{{ item.value.extgw_client_secret }}"
-    BACKEND_ENDPOINT: "{{ item.value.helm_release_name }}-{{ core_connector_service_name }}:{{ core_connector_service_port }}"
+    BACKEND_ENDPOINT: "{{ item.value.helm_release_name }}-mojaloop-core-connector:3003"
     MGMT_API_WS_URL: "{{ item.value.helm_release_name }}-management-api"
   {% if item.value.jws_public_keys is defined %}
   sharedJWSPubKeys:
@@ -177,7 +179,7 @@ pm4ml-mojaloop-connector:
       - host: "connector.{{ item.key }}.{{ item.value.pm4ml_subdomain }}"
     annotations:
       kubernetes.io/ingress.class: {{ ingress_class }}
-      cert-manager.io/cluster-issuer: vault-issuer
+      cert-manager.io/cluster-issuer: vault-issuer-{{ item.key }}
       external-dns.alpha.kubernetes.io/target: {{ switch_access_lb_hostname }}
       nginx.ingress.kubernetes.io/auth-tls-verify-client: "on"
       nginx.ingress.kubernetes.io/auth-tls-secret: "{{ item.key }}/mojaloop-connector-tls"
@@ -235,7 +237,7 @@ sim-backend:
 testIngress:
   enabled: true
   simBackendServiceName: "sim-backend"
-  coreConnectorServiceName: "{{ item.value.helm_release_name }}-{{ core_connector_service_name }}"
+  coreConnectorServiceName: "{{ item.value.helm_release_name }}-mojaloop-core-connector"
   mojaloopConnectorServiceName: "{{ item.value.helm_release_name }}-pm4ml-mojaloop-connector"
   hosts:
     - host: "test.{{ item.key }}.{{ item.value.pm4ml_subdomain }}"

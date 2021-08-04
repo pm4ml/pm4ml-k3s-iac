@@ -17,6 +17,6 @@ spec:
   dnsNames: 
   - connector.{{ item.key }}.{{ item.value.pm4ml_subdomain }}
   issuerRef:
-    name: vault-issuer
+    name: vault-issuer-{{ item.key }}
     kind: ClusterIssuer
     group: cert-manager.io

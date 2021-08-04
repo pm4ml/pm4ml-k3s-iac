@@ -1,25 +1,16 @@
-path "pki*" {
+path "pki-{{ base_domain }}-{{ item.key }}/*" {
   capabilities = ["read", "list"]
 }
 
-path "pki-{{ private_base_domain }}/issue/{{ private_base_domain }}" {
-  capabilities = ["create", "read", "update"]
-}
-path "pki-{{ base_domain }}/issue/{{ base_domain }}" {
+path "pki-{{ base_domain }}-{{ item.key }}/issue/{{ item.key }}.{{ base_domain }}" {
   capabilities = ["create", "read", "update"]
 }
 
-path "pki-{{ private_base_domain }}/roles/{{ private_base_domain }}" {
-  capabilities = ["create", "read", "update"]
-}
-path "pki-{{ base_domain }}/roles/{{ base_domain }}" {
+path "pki-{{ base_domain }}-{{ item.key }}/roles/{{ item.key }}.{{ base_domain }}" {
   capabilities = ["create", "read", "update"]
 }
 
-path "pki-{{ private_base_domain }}/sign/{{ private_base_domain }}" {
-  capabilities = ["create", "read", "update"]
-}
-path "pki-{{ base_domain }}/sign/{{ base_domain }}" {
+path "pki-{{ base_domain }}-{{ item.key }}/sign/{{ item.key }}.{{ base_domain }}" {
   capabilities = ["create", "read", "update"]
 }
 
