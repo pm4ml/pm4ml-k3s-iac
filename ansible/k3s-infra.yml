@@ -134,7 +134,7 @@
         helm repo add longhorn https://charts.longhorn.io;
         helm repo update;
         cp {{ tmpvalues.path }}/longhorn.values.yml ./longhorn.tmp.values.yml
-        helm upgrade --install --namespace longhorn-system longhorn longhorn/longhorn -f {{ tmpvalues.path }}/longhorn.values.yml
+        helm upgrade --install --namespace longhorn-system longhorn longhorn/longhorn --version {{ longhorn_version }} -f {{ tmpvalues.path }}/longhorn.values.yml
       tags:
         - longhorn
     #
