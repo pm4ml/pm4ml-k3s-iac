@@ -258,7 +258,7 @@ backend: ## Prepare a new environment if needed, create the s3 and dynamodb back
 	 	echo "$(BOLD)$(GREEN)S3 bucket $(S3_BUCKET) exists$(RESET)"; \
 		fi
 	@echo "$(BOLD)Verifying that the DynamoDB table exists for remote state locking$(RESET)"
-	@if ! aws --profile $(AWS_PROFILE) dynamodb describe-table --table-name $(DYNAMODB_TABLE) > /dev/null 2>&1 ; then \
+	@if ! aws --profile $(AWS_PROFILE) dynamodb describe-table --region $(AWS_REGION) --table-name $(DYNAMODB_TABLE) > /dev/null 2>&1 ; then \
 		echo "$(BOLD)DynamoDB table $(DYNAMODB_TABLE) was not found, creating new DynamoDB table to maintain locks$(RESET)"; \
 		aws --profile $(AWS_PROFILE) dynamodb create-table \
 					--region $(AWS_REGION) \
