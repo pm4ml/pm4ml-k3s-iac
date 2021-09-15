@@ -125,8 +125,7 @@ mojaloop-core-connector:
     enabled: true
     hosts:
       - host: "core-connector.{{ item.key }}.{{ item.value.pm4ml_subdomain }}"
-        paths:
-          - path: "/"
+        paths: ['/']
     annotations:
       kubernetes.io/ingress.class: {{ pm4ml_ingress_classname }}
       external-dns.alpha.kubernetes.io/target: {{ dfsp_access_lb_hostname }}
