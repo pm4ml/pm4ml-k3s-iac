@@ -3,7 +3,7 @@ ingress:
   hosts: [{{ vpn_endpoint }}]
   annotations:
     external-dns.alpha.kubernetes.io/target: {{ ingress_external_hostname }}
-    kubernetes.io/ingress.class: {{ ingress_class }}
+    kubernetes.io/ingress.class: {{ ext_ingress_classname }}
     cert-manager.io/cluster-issuer: letsencrypt
   tls:
     - hosts: [{{ vpn_endpoint }}]

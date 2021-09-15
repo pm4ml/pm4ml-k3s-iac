@@ -166,6 +166,7 @@
           - "templates/{{ cloud_provider }}/{{ item }}.yml.j2"
           - "templates/{{ item }}.yml.j2"
       with_items:
+          - nginx-ingress-internal.values
           - nginx-ingress.values
           - external-dns.values
           - cert-manager.namespace
@@ -186,7 +187,8 @@
     # Install nginx ingress controller
     - name: Deploy nginx-ingress helm chart
       shell: |
-        helm upgrade --install nginx-ingress ingress-nginx/ingress-nginx -f "{{ tmpvalues.path }}/nginx-ingress.values.yml"
+        helm upgrade --install nginx-ingress ingress-nginx/ingress-nginx --version v3.36.0 -f "{{ tmpvalues.path }}/nginx-ingress.values.yml"
+        helm upgrade --install --create-namespace --namespace nginx-internal nginx-ingress-int ingress-nginx/ingress-nginx --version v3.36.0 -f "{{ tmpvalues.path }}/nginx-ingress-internal.values.yml"
       tags:
         - nginx-ingress
       when: ingress_name == 'nginx'

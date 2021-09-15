@@ -9,7 +9,7 @@
   vars:
     dfsp_access_lb_hostname: "{{ ingress_internal_hostname if pm4ml_dfsp_internal_access_only == 'yes' else ingress_external_hostname }}"
     switch_access_lb_hostname: "{{ ingress_external_hostname }}"
-    internal_pm4ml_ingress: "{{ true if internal_pm4ml_instance == 'yes' else false }}"
+    pm4ml_ingress_classname: "{{ int_ingress_classname if pm4ml_dfsp_internal_access_only == 'yes' else ext_ingress_classname }}"
   tasks:
     - name: Bare include (free-form)
       include_vars:

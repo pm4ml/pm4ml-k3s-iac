@@ -8,6 +8,10 @@ all:
     # Miscellaneous config
     gitlab_group_name: "IaC"
     ingress_class: '{{ ingress_name }}'
+    int_ingress_default: "{{ {'yes': 'true', 'no': 'false' }[internal_pm4ml_instance] | default('false') }}"
+    ext_ingress_default: "{{ {'no': 'true', 'yes': 'false' }[internal_pm4ml_instance] | default('false') }}"
+    ext_ingress_classname: '{{ ingress_class }}external'
+    int_ingress_classname: '{{ ingress_class }}internal'
     ingress_external_hostname: "{{ {'onprem': onprem_external_hostname, 'aws': external_lb_hostname }[cloud_provider] | default('') }}"
     ingress_internal_hostname: "{{ {'onprem': onprem_external_hostname, 'aws': internal_lb_hostname }[cloud_provider] | default('') }}"
     storage_class_name: "longhorn"
@@ -33,6 +37,7 @@ all:
     vault_version: "0.9.0" # helm chart version with app version 1.6.1
     longhorn_version: "1.1.2"
     install_portainer: '{{ install_portainer }}'
+    internal_managed_cc_tls: '{{ internal_managed_cc_tls }}'
     # --------------
 bastion:
   vars:

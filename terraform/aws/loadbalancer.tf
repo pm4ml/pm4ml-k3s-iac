@@ -4,7 +4,7 @@
 resource "aws_lb" "server-lb" { #  server-lb was originally intended to expose the kube api from the k3s server only, however this serves as the internal load balancer for 80/443 traffic too
   internal           = true
   load_balancer_type = "network"
-  enable_cross_zone_load_balancing = true
+  enable_cross_zone_load_balancing = false
   subnets            = module.vpc.private_subnets
 }
 
@@ -25,20 +25,26 @@ resource "aws_lb_target_group" "server-6443" {
   vpc_id   = module.vpc.vpc_id
 }
 
+resource "aws_lb" "internal-lb" { #  for internal traffic, not kube traffic
+  internal           = true
+  load_balancer_type = "network"
+  enable_cross_zone_load_balancing = false
+  subnets            = module.vpc.private_subnets
+}
 
 resource "aws_lb_listener" "internal-port_443" {
-  load_balancer_arn = aws_lb.server-lb.arn
+  load_balancer_arn = aws_lb.internal-lb.arn
   port              = "443"
   protocol          = "TCP"
 
   default_action {
     type             = "forward"
-    target_group_arn = aws_lb_target_group.internal-443.arn
+    target_group_arn = aws_lb_target_group.internal-8443.arn
   }
 }
 
-resource "aws_lb_target_group" "internal-443" {
-  port     = 443
+resource "aws_lb_target_group" "internal-8443" {
+  port     = 8443
   protocol = "TCP"
   vpc_id   = module.vpc.vpc_id
 
@@ -46,31 +52,29 @@ resource "aws_lb_target_group" "internal-443" {
     interval            = 10
     timeout             = 6
     path                = "/healthz"
-    port                = 80
+    port                = 8080
     protocol            = "HTTP"
     healthy_threshold   = 3
     unhealthy_threshold = 3
     matcher             = "200-399"
   }
 
-  tags = {
-    "kubernetes.io/cluster/${local.name}" = ""
-  }
+  tags = local.common_tags
 }
 
 
 resource "aws_lb_listener" "internal-port_80" {
-  load_balancer_arn = aws_lb.server-lb.arn
+  load_balancer_arn = aws_lb.internal-lb.arn
   port              = "80"
   protocol          = "TCP"
 
   default_action {
     type             = "forward"
-    target_group_arn = aws_lb_target_group.internal-80.arn
+    target_group_arn = aws_lb_target_group.internal-8080.arn
   }
 }
-resource "aws_lb_target_group" "internal-80" {
-  port     = 80
+resource "aws_lb_target_group" "internal-8080" {
+  port     = 8080
   protocol = "TCP"
   vpc_id   = module.vpc.vpc_id
 
@@ -78,16 +82,14 @@ resource "aws_lb_target_group" "internal-80" {
     interval            = 10
     timeout             = 6
     path                = "/healthz"
-    port                = 80
+    port                = 8080
     protocol            = "HTTP"
     healthy_threshold   = 3
     unhealthy_threshold = 3
     matcher             = "200-399"
   }
 
-  tags = {
-    "kubernetes.io/cluster/${local.name}" = ""
-  }
+  tags = local.common_tags
 }
 
 #
@@ -98,9 +100,7 @@ resource "aws_lb" "lb" {
   load_balancer_type = "network"
   subnets            = module.vpc.public_subnets
 
-  tags = {
-    "kubernetes.io/cluster/${local.name}" = ""
-  }
+  tags = local.common_tags
 }
 
 resource "aws_lb_listener" "port_443" {
@@ -152,9 +152,7 @@ resource "aws_lb_target_group" "agent-443" {
     matcher             = "200-399"
   }
 
-  tags = {
-    "kubernetes.io/cluster/${local.name}" = ""
-  }
+  tags = local.common_tags
 }
 
 resource "aws_lb_target_group" "agent-80" {
@@ -173,9 +171,7 @@ resource "aws_lb_target_group" "agent-80" {
     matcher             = "200-399"
   }
 
-  tags = {
-    "kubernetes.io/cluster/${local.name}" = ""
-  }
+  tags = local.common_tags
 }
 
 
@@ -191,7 +187,5 @@ resource "aws_lb_target_group" "agent-51820" {
     port     = 80
   }
 
-  tags = {
-    "kubernetes.io/cluster/${local.name}" = ""
-  }
+  tags = local.common_tags
 }

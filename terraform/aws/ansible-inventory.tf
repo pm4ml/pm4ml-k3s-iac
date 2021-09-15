@@ -9,7 +9,7 @@ resource "ansible_group" "all" {
     longhorn_backups_iam_access_key = aws_iam_access_key.longhorn_backups.id
     longhorn_backups_iam_secret_key = aws_iam_access_key.longhorn_backups.secret
     external_lb_hostname            = aws_lb.lb.dns_name
-    internal_lb_hostname            = aws_lb.server-lb.dns_name
+    internal_lb_hostname            = aws_lb.internal-lb.dns_name
     ansible_ssh_user                = "ubuntu"
   }
 }
