@@ -36,7 +36,7 @@ frontend:
       - host: "portal.{{ item.key }}.{{ item.value.pm4ml_subdomain }}"
         paths: ['/']
     annotations:
-      kubernetes.io/ingress.class: {{ ingress_class }}
+      kubernetes.io/ingress.class: {{ pm4ml_ingress_classname }}
       cert-manager.io/cluster-issuer: letsencrypt
       external-dns.alpha.kubernetes.io/target: {{ dfsp_access_lb_hostname }}
       nginx.ingress.kubernetes.io/rewrite-target: /
@@ -67,7 +67,7 @@ experience-api:
       - host: "experience-api.{{ item.key }}.{{ item.value.pm4ml_subdomain }}"
         paths: ['/']
     annotations:
-      kubernetes.io/ingress.class: {{ ingress_class }}
+      kubernetes.io/ingress.class: {{ pm4ml_ingress_classname }}
       cert-manager.io/cluster-issuer: letsencrypt
       external-dns.alpha.kubernetes.io/target: {{ dfsp_access_lb_hostname }}
       nginx.ingress.kubernetes.io/rewrite-target: /
@@ -125,16 +125,22 @@ mojaloop-core-connector:
     enabled: true
     hosts:
       - host: "core-connector.{{ item.key }}.{{ item.value.pm4ml_subdomain }}"
-        paths: ['/']
+        paths:
+          - path: "/"
+            servicePort: http
     annotations:
-      kubernetes.io/ingress.class: {{ ingress_class }}
-      cert-manager.io/cluster-issuer: letsencrypt
+      kubernetes.io/ingress.class: {{ pm4ml_ingress_classname }}
       external-dns.alpha.kubernetes.io/target: {{ dfsp_access_lb_hostname }}
       nginx.ingress.kubernetes.io/rewrite-target: /
+      {% if internal_managed_cc_tls == "yes" %}
+      cert-manager.io/cluster-issuer: letsencrypt
+      {% endif %}
+    {% if internal_managed_cc_tls == "yes" %}
     tls:
     - secretName: pm4ml-tls
       hosts:
         - "*.{{ item.key }}.{{ item.value.pm4ml_subdomain }}"
+    {% endif %}
 
 pm4ml-mojaloop-connector:
   imagePullCredentials: *imagePullCredentials
@@ -178,7 +184,7 @@ pm4ml-mojaloop-connector:
     hosts:
       - host: "connector.{{ item.key }}.{{ item.value.pm4ml_subdomain }}"
     annotations:
-      kubernetes.io/ingress.class: {{ ingress_class }}
+      kubernetes.io/ingress.class: {{ ext_ingress_classname }}
       cert-manager.io/cluster-issuer: vault-issuer-{{ item.key }}
       external-dns.alpha.kubernetes.io/target: {{ switch_access_lb_hostname }}
       nginx.ingress.kubernetes.io/auth-tls-verify-client: "on"
@@ -202,7 +208,7 @@ keycloak:
         paths:
           - /
     annotations:
-      kubernetes.io/ingress.class: {{ ingress_class }}
+      kubernetes.io/ingress.class: {{ pm4ml_ingress_classname }}
       cert-manager.io/cluster-issuer: letsencrypt
       external-dns.alpha.kubernetes.io/target: {{ dfsp_access_lb_hostname }}
     tls:
@@ -242,5 +248,5 @@ testIngress:
   hosts:
     - host: "test.{{ item.key }}.{{ item.value.pm4ml_subdomain }}"
   annotations:
-    kubernetes.io/ingress.class: {{ ingress_class }}
+    kubernetes.io/ingress.class: {{ pm4ml_ingress_classname }}
     external-dns.alpha.kubernetes.io/target: {{ dfsp_access_lb_hostname }}

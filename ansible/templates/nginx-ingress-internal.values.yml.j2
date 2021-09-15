@@ -4,8 +4,12 @@ controller:
   publishService:
     enabled: false
   extraArgs:
-    publish-status-address: {{ ingress_external_hostname }}
+    publish-status-address: {{ ingress_internal_hostname }}
   config:
     proxy-buffer-size: "16k"
     keepalive_timeout: "65s"
-  ingressClass: {{ ext_ingress_classname }}
+  service:
+    ports:
+      http: 8080
+      https: 8443
+  ingressClass: {{ int_ingress_classname }}

@@ -48,6 +48,23 @@ resource "aws_security_group_rule" "ingress_https" {
   security_group_id = aws_security_group.ingress.id
 }
 
+resource "aws_security_group_rule" "ingress_http_internal" {
+  type              = "ingress"
+  from_port         = 8080
+  to_port           = 8080
+  protocol          = "TCP"
+  cidr_blocks       = ["0.0.0.0/0"]
+  security_group_id = aws_security_group.ingress.id
+}
+
+resource "aws_security_group_rule" "ingress_https_internal" {
+  type              = "ingress"
+  from_port         = 8443
+  to_port           = 8443
+  protocol          = "TCP"
+  cidr_blocks       = ["0.0.0.0/0"]
+  security_group_id = aws_security_group.ingress.id
+}
 
 resource "aws_security_group_rule" "ingress_vpn" {
   type              = "ingress"
@@ -96,6 +113,51 @@ resource "aws_security_group_rule" "self_k3s_server" {
   to_port           = 6443
   protocol          = "TCP"
   cidr_blocks       = module.vpc.private_subnets_cidr_blocks
+  security_group_id = aws_security_group.self.id
+}
+
+resource "aws_security_group_rule" "self_https_external" {
+  type              = "ingress"
+  from_port         = 443
+  to_port           = 443
+  protocol          = "TCP"
+  cidr_blocks       = module.vpc.private_subnets_cidr_blocks
+  security_group_id = aws_security_group.self.id
+}
+
+resource "aws_security_group_rule" "self_http_external" {
+  type              = "ingress"
+  from_port         = 80
+  to_port           = 80
+  protocol          = "TCP"
+  cidr_blocks       = module.vpc.private_subnets_cidr_blocks
+  security_group_id = aws_security_group.self.id
+}
+
+resource "aws_security_group_rule" "self_https_internal" {
+  type              = "ingress"
+  from_port         = 8443
+  to_port           = 8443
+  protocol          = "TCP"
+  cidr_blocks       = module.vpc.private_subnets_cidr_blocks
+  security_group_id = aws_security_group.self.id
+}
+
+resource "aws_security_group_rule" "self_http_internal" {
+  type              = "ingress"
+  from_port         = 8080
+  to_port           = 8080
+  protocol          = "TCP"
+  cidr_blocks       = module.vpc.private_subnets_cidr_blocks
+  security_group_id = aws_security_group.self.id
+}
+
+resource "aws_security_group_rule" "self_egress_all" {
+  type              = "egress"
+  from_port         = 0
+  to_port           = 0
+  protocol          = "-1"
+  cidr_blocks       = ["0.0.0.0/0"]
   security_group_id = aws_security_group.self.id
 }
 
@@ -242,8 +304,8 @@ resource "aws_autoscaling_group" "k3s_agent" {
   target_group_arns = [
     aws_lb_target_group.agent-80.arn,
     aws_lb_target_group.agent-443.arn,
-    aws_lb_target_group.internal-80.arn,
-    aws_lb_target_group.internal-443.arn,
+    aws_lb_target_group.internal-8080.arn,
+    aws_lb_target_group.internal-8443.arn,
     aws_lb_target_group.agent-51820.arn
   ]
 

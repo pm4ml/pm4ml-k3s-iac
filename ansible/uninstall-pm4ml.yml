@@ -23,8 +23,8 @@
         - pm4ml-client-certs
     - name: Upload pm4ml crd files
       template:
-        src: "templates/pm4ml-crd.yml.j2"
-        dest: "{{ tmpvalues.path }}/{{ item.key }}.pm4ml-crd.yml"
+        src: "templates/pm4ml.crd.yml.j2"
+        dest: "{{ tmpvalues.path }}/{{ item.key }}.pm4ml.crd.yml"
       loop: "{{ pm4ml | dict2items }}"
       loop_control:
         label: "{{ item.key }}"
@@ -33,7 +33,7 @@
     - name: Delete pm4ml helm chart and related items in the k8s namespaces
       shell: |
         helm delete {{ item.key }} --namespace {{ item.key }}
-        kubectl delete -n {{ item.key }} -f "{{ tmpvalues.path }}/{{ item.key }}.pm4ml-crd.yml"
+        kubectl delete -n {{ item.key }} -f "{{ tmpvalues.path }}/{{ item.key }}.pm4ml.crd.yml"
         kubectl delete namespace {{ item.key }}
         VAULT_ROOT_TOKEN=$(cat vault-keys.json | jq -r ".root_token")
         kubectl exec vault-0 -- vault delete secrets/keycloak/{{ item.key }}
