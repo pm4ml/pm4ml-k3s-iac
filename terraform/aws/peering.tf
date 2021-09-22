@@ -23,6 +23,7 @@ data "aws_route_table" "k3s_private_rta" {
     values = ["${local.name}-private-${var.region}a"]
   }
   depends_on = [module.vpc]
+  tags = merge({ Name = "${local.name}-k3s_private_rta" }, local.common_tags)
 }
 
 data "aws_route_table" "k3s_private_rtb" {
@@ -34,6 +35,7 @@ data "aws_route_table" "k3s_private_rtb" {
     values = ["${local.name}-private-${var.region}b"]
   }
   depends_on = [module.vpc]
+  tags = merge({ Name = "${local.name}-k3s_private_rtb" }, local.common_tags)
 }
 
 data "aws_route_table" "k3s_private_rtc" {
@@ -45,6 +47,7 @@ data "aws_route_table" "k3s_private_rtc" {
     values = ["${local.name}-private-${var.region}c"]
   }
   depends_on = [module.vpc]
+  tags = merge({ Name = "${local.name}-k3s_private_rtc" }, local.common_tags)
 }
 
 data "aws_route_table" "switch_management_rt" {
@@ -55,22 +58,20 @@ data "aws_route_table" "switch_management_rt" {
     name   = "tag:Name"
     values = ["*-public-management"]
   }
+  tags = merge({ Name = "${local.name}-switch_management_rt" }, local.common_tags)
 }
 
 resource "aws_route" "vpc-peering-route-to-k3s" {
     for_each = local.switch_rtid_map
     route_table_id = each.value
     destination_cidr_block = var.vpc_cidr
-    vpc_peering_connection_id = aws_vpc_peering_connection.iac_pc[0].id
-    tags = merge({ Name = "${local.name}-vpc-peering-route-to-k3s" }, local.common_tags)
-}
+    vpc_peering_connection_id = aws_vpc_peering_connection.iac_pc[0].id}
 
 resource "aws_route" "vpc-peering-route-to-cirunner" {
     for_each = local.k3s_rtid_map
     route_table_id = each.value
     destination_cidr_block = "10.25.0.0/16"    
     vpc_peering_connection_id = aws_vpc_peering_connection.iac_pc[0].id
-    tags = merge({ Name = "${local.name}-vpc-peering-route-to-cirunner" }, local.common_tags)
 }
 
 locals {
