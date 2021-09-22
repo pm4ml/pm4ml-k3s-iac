@@ -6,6 +6,7 @@ resource "aws_lb" "server-lb" { #  server-lb was originally intended to expose t
   load_balancer_type = "network"
   enable_cross_zone_load_balancing = false
   subnets            = module.vpc.private_subnets
+  tags = merge({ Name = "${local.name}-kube" }, local.common_tags)
 }
 
 resource "aws_lb_listener" "server-port_6443" {
@@ -23,6 +24,7 @@ resource "aws_lb_target_group" "server-6443" {
   port     = 6443
   protocol = "TCP"
   vpc_id   = module.vpc.vpc_id
+  tags = merge({ Name = "${local.name}-server-6443" }, local.common_tags)
 }
 
 resource "aws_lb" "internal-lb" { #  for internal traffic, not kube traffic
@@ -30,6 +32,7 @@ resource "aws_lb" "internal-lb" { #  for internal traffic, not kube traffic
   load_balancer_type = "network"
   enable_cross_zone_load_balancing = false
   subnets            = module.vpc.private_subnets
+  tags = merge({ Name = "${local.name}-internal" }, local.common_tags)
 }
 
 resource "aws_lb_listener" "internal-port_443" {
@@ -59,7 +62,7 @@ resource "aws_lb_target_group" "internal-8443" {
     matcher             = "200-399"
   }
 
-  tags = local.common_tags
+  tags = merge({ Name = "${local.name}-internal-8443" }, local.common_tags)
 }
 
 
@@ -89,7 +92,7 @@ resource "aws_lb_target_group" "internal-8080" {
     matcher             = "200-399"
   }
 
-  tags = local.common_tags
+  tags = merge({ Name = "${local.name}-internal-8080" }, local.common_tags)
 }
 
 #
@@ -100,7 +103,7 @@ resource "aws_lb" "lb" {
   load_balancer_type = "network"
   subnets            = module.vpc.public_subnets
 
-  tags = local.common_tags
+  tags = merge({ Name = "${local.name}-public" }, local.common_tags)
 }
 
 resource "aws_lb_listener" "port_443" {
@@ -152,7 +155,7 @@ resource "aws_lb_target_group" "agent-443" {
     matcher             = "200-399"
   }
 
-  tags = local.common_tags
+  tags = merge({ Name = "${local.name}-agent-443" }, local.common_tags)
 }
 
 resource "aws_lb_target_group" "agent-80" {
@@ -171,7 +174,7 @@ resource "aws_lb_target_group" "agent-80" {
     matcher             = "200-399"
   }
 
-  tags = local.common_tags
+  tags = merge({ Name = "${local.name}-agent-80" }, local.common_tags)
 }
 
 
@@ -187,5 +190,5 @@ resource "aws_lb_target_group" "agent-51820" {
     port     = 80
   }
 
-  tags = local.common_tags
+  tags = merge({ Name = "${local.name}-agent-51820" }, local.common_tags)
 }

@@ -1,7 +1,7 @@
 # IAM user with permissions to be able to update route53 records, for use with external-dns
 resource "aws_iam_user" "route53-external-dns" {
   name = "${local.name}-external-dns"
-  tags = merge({}, local.common_tags)
+  tags = merge({ Name = "${local.name}-route53-external-dns" }, local.common_tags)
 }
 resource "aws_iam_access_key" "route53-external-dns" {
   user = aws_iam_user.route53-external-dns.name
