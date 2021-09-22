@@ -331,9 +331,31 @@ resource "aws_autoscaling_group" "k3s_server" {
     id      = aws_launch_template.k3s_server.id
     version = "$Latest"
   }
-
+  tags = concat(
+    [
+      {
+        "key"                 = "Name"
+        "value"               = "${local.name}-k3s_server"
+        "propagate_at_launch" = false
+      },
+      {
+        "key"                 = "Client"
+        "value"               = var.client
+        "propagate_at_launch" = false
+      },
+      {
+        "key"                 = "Environment"
+        "value"               = var.environment
+        "propagate_at_launch" = false
+      },
+      {
+        "key"                 = "Domain"
+        "value"               = local.base_domain
+        "propagate_at_launch" = false
+      }
+    ]
+  )
   depends_on = [aws_rds_cluster_instance.k3s]
-  tags = merge({ Name = "${local.name}-server" }, local.common_tags)
 }
 
 resource "aws_autoscaling_group" "k3s_agent" {
@@ -355,7 +377,31 @@ resource "aws_autoscaling_group" "k3s_agent" {
     id      = aws_launch_template.k3s_agent.id
     version = "$Latest"
   }
-  tags = merge({ Name = "${local.name}-agent" }, local.common_tags)
+  tags = concat(
+    [
+      {
+        "key"                 = "Name"
+        "value"               = "${local.name}-k3s_agent"
+        "propagate_at_launch" = false
+      },
+      {
+        "key"                 = "Client"
+        "value"               = var.client
+        "propagate_at_launch" = false
+      },
+      {
+        "key"                 = "Environment"
+        "value"               = var.environment
+        "propagate_at_launch" = false
+      },
+      {
+        "key"                 = "Domain"
+        "value"               = local.base_domain
+        "propagate_at_launch" = false
+      }
+    ]
+  )
+
 }
 
 #############################
