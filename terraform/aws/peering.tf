@@ -65,7 +65,8 @@ resource "aws_route" "vpc-peering-route-to-k3s" {
     for_each = local.switch_rtid_map
     route_table_id = each.value
     destination_cidr_block = var.vpc_cidr
-    vpc_peering_connection_id = aws_vpc_peering_connection.iac_pc[0].id}
+    vpc_peering_connection_id = aws_vpc_peering_connection.iac_pc[0].id
+}
 
 resource "aws_route" "vpc-peering-route-to-cirunner" {
     for_each = local.k3s_rtid_map
