@@ -23,7 +23,6 @@ data "aws_route_table" "k3s_private_rta" {
     values = ["${local.name}-private-${var.region}a"]
   }
   depends_on = [module.vpc]
-  tags = merge({ Name = "${local.name}-k3s_private_rta" }, local.common_tags)
 }
 
 data "aws_route_table" "k3s_private_rtb" {
@@ -35,7 +34,6 @@ data "aws_route_table" "k3s_private_rtb" {
     values = ["${local.name}-private-${var.region}b"]
   }
   depends_on = [module.vpc]
-  tags = merge({ Name = "${local.name}-k3s_private_rtb" }, local.common_tags)
 }
 
 data "aws_route_table" "k3s_private_rtc" {
@@ -47,7 +45,6 @@ data "aws_route_table" "k3s_private_rtc" {
     values = ["${local.name}-private-${var.region}c"]
   }
   depends_on = [module.vpc]
-  tags = merge({ Name = "${local.name}-k3s_private_rtc" }, local.common_tags)
 }
 
 data "aws_route_table" "switch_management_rt" {
@@ -58,7 +55,6 @@ data "aws_route_table" "switch_management_rt" {
     name   = "tag:Name"
     values = ["*-public-management"]
   }
-  tags = merge({ Name = "${local.name}-switch_management_rt" }, local.common_tags)
 }
 
 resource "aws_route" "vpc-peering-route-to-k3s" {
