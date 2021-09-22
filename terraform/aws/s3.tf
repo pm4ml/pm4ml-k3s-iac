@@ -1,13 +1,12 @@
 resource "aws_s3_bucket" "longhorn_backups" {
   bucket = "${local.base_domain}-lhbck"
   acl    = "private"
-
-  tags = merge({}, local.common_tags)
+  tags = merge({ Name = "${local.name}-longhorn_backups" }, local.common_tags)
 }
 
 resource "aws_iam_user" "longhorn_backups" {
   name = "${local.base_domain}-lhbck"
-  tags = merge({}, local.common_tags)
+  tags = merge({ Name = "${local.name}-longhorn_backups" }, local.common_tags)
 }
 resource "aws_iam_access_key" "longhorn_backups" {
   user = aws_iam_user.longhorn_backups.name

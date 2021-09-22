@@ -6,12 +6,14 @@ resource "aws_route53_zone" "private" {
   vpc {
     vpc_id = module.vpc.vpc_id
   }
+  tags = merge({ Name = "${local.name}-private" }, local.common_tags)
 }
 
 resource "aws_route53_zone" "public" {
   force_destroy = true
   count = var.create_public_zone == "yes" ? 1 : 0
   name  = "${local.base_domain}."
+  tags = merge({ Name = "${local.name}-public" }, local.common_tags)
 }
 
 resource "aws_route53_record" "public-ns" {

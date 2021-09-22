@@ -1,7 +1,7 @@
 resource "aws_security_group" "bastion" {
   name   = "${local.name}-bastion"
   vpc_id = module.vpc.vpc_id
-  tags   = merge({}, local.common_tags)
+  tags = merge({ Name = "${local.name}-bastion" }, local.common_tags)
 }
 
 resource "aws_security_group_rule" "bastion_ssh" {

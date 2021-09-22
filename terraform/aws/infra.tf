@@ -28,6 +28,7 @@ module "vpc" {
 resource "aws_security_group" "ingress" {
   name   = "${local.name}-ingress"
   vpc_id = module.vpc.vpc_id
+  tags = merge({ Name = "${local.name}-ingress" }, local.common_tags)
 }
 
 resource "aws_security_group_rule" "ingress_http" {
@@ -96,6 +97,7 @@ resource "aws_security_group_rule" "ingress_egress_all" {
 resource "aws_security_group" "self" {
   name   = "${local.name}-self"
   vpc_id = module.vpc.vpc_id
+  tags = merge({ Name = "${local.name}-self" }, local.common_tags)
 }
 
 resource "aws_security_group_rule" "self_self" {
@@ -161,12 +163,18 @@ resource "aws_security_group_rule" "self_egress_all" {
   security_group_id = aws_security_group.self.id
 }
 
+#should change this to create only if managed db being used, need to address the ref to db sec group in ec2 server aws_launch_template
+
+
 resource "aws_security_group" "database" {
+  #count  = local.deploy_rds
   name   = "${local.name}-database"
   vpc_id = module.vpc.vpc_id
+  tags = merge({ Name = "${local.name}-database" }, local.common_tags)
 }
 
 resource "aws_security_group_rule" "database_self" {
+  #count             = local.deploy_rds
   type              = "ingress"
   from_port         = 5432
   to_port           = 5432
@@ -176,6 +184,7 @@ resource "aws_security_group_rule" "database_self" {
 }
 
 resource "aws_security_group_rule" "database_egress_all" {
+  #count             = local.deploy_rds
   type              = "egress"
   from_port         = 0
   to_port           = 0
@@ -224,6 +233,22 @@ resource "aws_launch_template" "k3s_server" {
       local.common_tags
     )
   }
+  tag_specifications {
+    resource_type = "volume"
+
+    tags = merge(
+      { Name = "${local.name}-server" },
+      local.common_tags
+    )
+  }
+  tag_specifications {
+    resource_type = "network-interface"
+
+    tags = merge(
+      { Name = "${local.name}-server" },
+      local.common_tags
+    )
+  }
   lifecycle {
     ignore_changes = [
       image_id
@@ -266,6 +291,22 @@ resource "aws_launch_template" "k3s_agent" {
       local.common_tags
     )
   }
+  tag_specifications {
+    resource_type = "volume"
+
+    tags = merge(
+      { Name = "${local.name}-agent" },
+      local.common_tags
+    )
+  }
+  tag_specifications {
+    resource_type = "network-interface"
+
+    tags = merge(
+      { Name = "${local.name}-agent" },
+      local.common_tags
+    )
+  }
   lifecycle {
     ignore_changes = [
       image_id
@@ -292,6 +333,7 @@ resource "aws_autoscaling_group" "k3s_server" {
   }
 
   depends_on = [aws_rds_cluster_instance.k3s]
+  tags = merge({ Name = "${local.name}-server" }, local.common_tags)
 }
 
 resource "aws_autoscaling_group" "k3s_agent" {
@@ -313,6 +355,7 @@ resource "aws_autoscaling_group" "k3s_agent" {
     id      = aws_launch_template.k3s_agent.id
     version = "$Latest"
   }
+  tags = merge({ Name = "${local.name}-agent" }, local.common_tags)
 }
 
 #############################

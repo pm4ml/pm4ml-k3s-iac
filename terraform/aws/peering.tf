@@ -11,7 +11,7 @@ resource "aws_vpc_peering_connection" "iac_pc" {
   requester {
     allow_remote_vpc_dns_resolution = true
   }
-  tags = merge({}, local.common_tags)
+  tags = merge({ Name = "${local.name}-vpc-peer-conn-iac_pc" }, local.common_tags)
 }
 
 data "aws_route_table" "k3s_private_rta" {
@@ -62,6 +62,7 @@ resource "aws_route" "vpc-peering-route-to-k3s" {
     route_table_id = each.value
     destination_cidr_block = var.vpc_cidr
     vpc_peering_connection_id = aws_vpc_peering_connection.iac_pc[0].id
+    tags = merge({ Name = "${local.name}-vpc-peering-route-to-k3s" }, local.common_tags)
 }
 
 resource "aws_route" "vpc-peering-route-to-cirunner" {
@@ -69,7 +70,7 @@ resource "aws_route" "vpc-peering-route-to-cirunner" {
     route_table_id = each.value
     destination_cidr_block = "10.25.0.0/16"    
     vpc_peering_connection_id = aws_vpc_peering_connection.iac_pc[0].id
-
+    tags = merge({ Name = "${local.name}-vpc-peering-route-to-cirunner" }, local.common_tags)
 }
 
 locals {
