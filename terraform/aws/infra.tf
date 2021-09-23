@@ -36,7 +36,7 @@ resource "aws_security_group_rule" "ingress_http" {
   from_port         = 80
   to_port           = 80
   protocol          = "TCP"
-  cidr_blocks       = ["0.0.0.0/0"]
+  cidr_blocks       = local.external_http_cidr_blocks
   security_group_id = aws_security_group.ingress.id
 }
 
@@ -45,7 +45,7 @@ resource "aws_security_group_rule" "ingress_https" {
   from_port         = 443
   to_port           = 443
   protocol          = "TCP"
-  cidr_blocks       = ["0.0.0.0/0"]
+  cidr_blocks       = local.external_http_cidr_blocks
   security_group_id = aws_security_group.ingress.id
 }
 

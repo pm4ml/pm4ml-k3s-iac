@@ -132,6 +132,12 @@ variable "peer_vpc_id" {
   type        = string
   description = "VPC ID where CI Runner is located, to create peering to allow for running of test scripts/etc in priv network"
 }
+variable "whitelist_ip_file" {
+  default     = ""
+  type        = string
+  description = "file name to pull whitelist ips from"
+}
+
 ###
 # Local copies of variables to allow for parsing
 ###
@@ -154,4 +160,6 @@ locals {
   private_subnets = [cidrsubnet(var.vpc_cidr, 3, 4), cidrsubnet(var.vpc_cidr, 3, 5), cidrsubnet(var.vpc_cidr, 3, 6)]
   public_zone_id  = var.create_public_zone == "yes" ? aws_route53_zone.public[0].zone_id : data.aws_route53_zone.public[0].zone_id
   private_zone_id  = var.create_private_zone == "yes" ? aws_route53_zone.private[0].zone_id : data.aws_route53_zone.private[0].zone_id
+  external_http_cidr_blocks = length(var.whitelist_ip_file) > 0 ? jsondecode(file(var.whitelist_ip_file)) : ["0.0.0.0/0"]
+  #internal_http_cidr_blocks = length(var.whitelist_ip_file) > 0 ? jsondecode(file(var.whitelist_ip_file)) : ["0.0.0.0/0"]
 }
