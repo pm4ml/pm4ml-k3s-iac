@@ -24,3 +24,6 @@ wireguard:
 persistence:
   enabled: true
   storageClass: {{ storage_class_name }}
+
+nodeSelector:
+  "node-role.kubernetes.io/master": "true"
