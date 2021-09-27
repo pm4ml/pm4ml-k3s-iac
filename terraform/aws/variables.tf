@@ -151,6 +151,7 @@ locals {
     },
   var.tags)
   deploy_rds      = var.k3s_storage_endpoint != "sqlite" ? 1 : 0
+  server_security_groups = concat([aws_security_group.self.id, module.vpc.default_security_group_id], deploy_rds == 0 ? [] : [aws_security_group.database.id])
   db_name         = var.db_name != null ? var.db_name : local.name
   db_user         = var.db_user != null ? var.db_user : local.name
   db_password     = var.db_password != null ? var.db_password : random_password.db_password.result
