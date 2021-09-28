@@ -148,12 +148,8 @@ variable "extra_tag_file" {
 locals {
   name = "${replace(var.client, "-", "")}-${var.environment}"
   base_domain     = "${replace(var.client, "-", "")}.${var.domain}"
-  common_tags = merge(
-    { Client      = var.client,
-      Environment = var.environment,
-      Domain      = local.base_domain
-    },
-  var.tags, length(var.extra_tag_file) > 0 ? jsondecode(file(var.extra_tag_file)) : {})
+  identifying_tags = { Client = var.client, Environment = var.environment, Domain = local.base_domain}
+  common_tags = merge(local.identifying_tags, var.tags, length(var.extra_tag_file) > 0 ? jsondecode(file(var.extra_tag_file)) : {})
   deploy_rds      = var.k3s_storage_endpoint != "sqlite" ? 1 : 0
   server_security_groups = concat([aws_security_group.self.id, module.vpc.default_security_group_id], local.deploy_rds == 0 ? [] : [aws_security_group.database[0].id])
   db_name         = var.db_name != null ? var.db_name : local.name
