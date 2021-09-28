@@ -267,7 +267,7 @@ resource "aws_rds_cluster" "k3s" {
   master_password                 = local.db_password
   preferred_maintenance_window    = "fri:03:21-fri:03:51"
   db_subnet_group_name            = aws_db_subnet_group.private.0.id
-  vpc_security_group_ids          = [aws_security_group.database.id]
+  vpc_security_group_ids          = [aws_security_group.database[0].id]
   storage_encrypted               = true
 
   preferred_backup_window   = "03:52-05:52"
