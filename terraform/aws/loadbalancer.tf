@@ -1,38 +1,29 @@
 #
 # Internal load balancer
 #
-resource "aws_lb" "server-lb" { #  server-lb was originally intended to expose the kube api from the k3s server only, however this serves as the internal load balancer for 80/443 traffic too
+resource "aws_lb" "internal-lb" { #  for internal traffic, including kube traffic
   internal           = true
   load_balancer_type = "network"
-  enable_cross_zone_load_balancing = false
+  enable_cross_zone_load_balancing = true
   subnets            = module.vpc.private_subnets
-  tags = merge({ Name = "${local.name}-kube" }, local.common_tags)
+  tags = merge({ Name = "${local.name}-internal" }, local.common_tags)
 }
 
-resource "aws_lb_listener" "server-port_6443" {
-  load_balancer_arn = aws_lb.server-lb.arn
+resource "aws_lb_listener" "internal-port_6443" {
+  load_balancer_arn = aws_lb.internal-lb.arn
   port              = "6443"
   protocol          = "TCP"
-
   default_action {
     type             = "forward"
-    target_group_arn = aws_lb_target_group.server-6443.arn
+    target_group_arn = aws_lb_target_group.internal-6443.arn
   }
 }
 
-resource "aws_lb_target_group" "server-6443" {
+resource "aws_lb_target_group" "internal-6443" {
   port     = 6443
   protocol = "TCP"
   vpc_id   = module.vpc.vpc_id
-  tags = merge({ Name = "${local.name}-server-6443" }, local.common_tags)
-}
-
-resource "aws_lb" "internal-lb" { #  for internal traffic, not kube traffic
-  internal           = true
-  load_balancer_type = "network"
-  enable_cross_zone_load_balancing = false
-  subnets            = module.vpc.private_subnets
-  tags = merge({ Name = "${local.name}-internal" }, local.common_tags)
+  tags = merge({ Name = "${local.name}-internal-6443" }, local.common_tags)
 }
 
 resource "aws_lb_listener" "internal-port_443" {
