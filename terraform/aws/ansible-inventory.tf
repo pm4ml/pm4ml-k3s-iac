@@ -16,13 +16,13 @@ resource "ansible_group" "all" {
 
 # Create data sources to load the IPs of the servers created by the autoscaling group
 data "aws_instances" "k3s_server" {
-  instance_tags = merge({ Name = "${local.name}-server" }, local.common_tags)
+  instance_tags = merge({ Name = "${local.name}-server" }, local.identifying_tags)
   depends_on    = [aws_autoscaling_group.k3s_server]
 }
 
 data "aws_instances" "k3s_agent" {
   count         = var.agent_node_count > 0 ? 1 : 0
-  instance_tags = merge({ Name = "${local.name}-agent" }, local.common_tags)
+  instance_tags = merge({ Name = "${local.name}-agent" }, local.identifying_tags)
   depends_on    = [aws_autoscaling_group.k3s_agent]
 }
 

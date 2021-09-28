@@ -112,6 +112,7 @@ k3s_version?=v1.21.2+k3s1
 install_portainer?=no
 internal_managed_cc_tls?=yes
 whitelist_ip_file?=
+extra_tag_file?=
 ##
 # Configuration variables
 ##
@@ -351,6 +352,7 @@ config: .env ## Run first-time configuration
 	install_portainer=$$(readConfigVar "Install portainer? (yes|no)" "install_portainer" "$(install_portainer)")
 	internal_managed_cc_tls=$$(readConfigVar "Install portainer? (yes|no)" "internal_managed_cc_tls" "$(internal_managed_cc_tls)")
 	whitelist_ip_file=$$(readConfigVar "whitelist file for external" "whitelist_ip_file" "$(whitelist_ip_file)")
+	extra_tag_file=$$(readConfigVar "extra tag file" "extra_tag_file" "$(extra_tag_file)")
 	ingress_name=$$(readConfigVar "Ingress controller (nginx or traefik or ambassador)" "ingress_name" "$(ingress_name)")
 	monitoring_stack=$$(readConfigVar "Monitoring stack (efk or loki) [See README if unsure]" "monitoring_stack" "$(monitoring_stack)")
 	letsencrypt_email=$$(readConfigVar "Lets Encrypt Account Email" "letsencrypt_email" "$(letsencrypt_email)")
