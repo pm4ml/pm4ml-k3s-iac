@@ -13,69 +13,15 @@
         suffix: values
       register: tmpvalues
       tags:
-        - grafana
-        - elasticsearch
-        - fluentd
-        - kibana
-        - apm
         - loki
-        - prometheus
     - name: Add helm repo
       shell: |
-        helm repo add prometheus-community https://prometheus-community.github.io/helm-charts 
         helm repo add grafana https://grafana.github.io/helm-charts
-        helm repo add elastic https://helm.elastic.co
-        helm repo add kiwigrid https://kiwigrid.github.io
         helm repo update
       tags:
-        - prometheus
-        - grafana
-        - elasticsearch
-        - fluentd
-        - kibana
-        - apm
-        - loki
-    - name: Create namespace
-      shell: |
-        kubectl apply -f - <<EOF
-        apiVersion: v1
-        kind: Namespace
-        metadata:
-          name: monitoring
-        EOF
-      tags:
-        - prometheus
-        - grafana
-        - elasticsearch
-        - fluentd
-        - kibana
-        - apm
         - loki
     # Upload values files, using the specific version for the cloud_provider if found, or a generic version otherwise  
-    - name: Upload helm values for EFK stack
-      template: 
-        src: "{{ lookup('first_found', findvalues) }}"
-        dest: "{{ tmpvalues.path }}/{{ item }}.values.yml"
-      vars:
-        findvalues:
-          - "templates/{{ cloud_provider }}/{{ item }}.values.yml.j2"
-          - "templates/{{ item }}.values.yml.j2"
-      with_items:
-        - prometheus
-        - grafana
-        - elasticsearch
-        - fluentd
-        - kibana
-        - apm
-      tags:
-        - prometheus
-        - grafana
-        - elasticsearch
-        - fluentd
-        - kibana
-        - apm
-      when: monitoring_stack == 'efk'
-    - name: Upload helm values for Loki stack
+    - name: Upload helm values
       template: 
         src: "{{ lookup('first_found', findvalues) }}"
         dest: "{{ tmpvalues.path }}/{{ item }}.values.yml"
@@ -88,44 +34,20 @@
       tags:
         - loki
       when: monitoring_stack == 'loki'
-    - name: Install prometheus # Prometheus is installed with default values
-      shell: |
-        helm upgrade --namespace monitoring --install prometheus prometheus-community/prometheus --version {{ prometheus_version }} -f "{{ tmpvalues.path }}/prometheus.values.yml"
-      tags:
-        - prometheus
-      when: monitoring_stack == 'efk'
-    # TODO: The dashboard doesn't seem to be loading from the included json in the grafana values file, probably need to create a configmap instead as per https://github.com/helm/charts/tree/master/stable/grafana#sidecar-for-dashboards 
-    - name: Install grafana
-      shell: |
-        helm upgrade --namespace monitoring --install grafana grafana/grafana --version {{ grafana_version }} -f "{{ tmpvalues.path }}/grafana.values.yml"
-      tags:
-        - grafana
-      when: monitoring_stack == 'efk'
-    - name: Install elasticsearch
-      shell: |
-        helm upgrade --install --namespace monitoring elasticsearch elastic/elasticsearch --version {{ elasticsearch_version }} -f "{{ tmpvalues.path }}/elasticsearch.values.yml"
-      tags:
-        - elasticsearch
-      when: monitoring_stack == 'efk'
-    - name: Install fluentd
-      shell: |
-        helm upgrade --install --namespace monitoring fluentd kiwigrid/fluentd-elasticsearch --version {{ fluentd_elasticsearch_version }} -f "{{ tmpvalues.path }}/fluentd.values.yml"
-      tags: 
-        - fluentd
-      when: monitoring_stack == 'efk'
-    - name: Install kibana
-      shell: |
-        helm upgrade --install --namespace monitoring kibana elastic/kibana --version {{ kibana_version }} -f "{{ tmpvalues.path}}/kibana.values.yml"
-      tags:
-        - kibana
-      when: monitoring_stack == 'efk'
-    - name: Install apm
-      shell: |
-        helm upgrade --install --namespace monitoring apm elastic/apm-server --version {{ apm_version }} -f "{{ tmpvalues.path}}/apm.values.yml"
-      tags:
-        - apm
-      when: monitoring_stack == 'efk'
+
     - name: Install loki
       shell: | 
-        helm upgrade --install --namespace monitoring loki grafana/loki-stack --version {{ loki_version }} -f "{{ tmpvalues.path}}/loki.values.yml"
+        helm upgrade --install --create-namespace --namespace monitoring loki grafana/loki-stack --version {{ loki_version }} -f "{{ tmpvalues.path}}/loki.values.yml"
+      tags:
+        - loki
+      when: monitoring_stack == 'loki'
+
+    - name: Set grafana admin pw in vault
+      shell: |
+        VAULT_ROOT_TOKEN=$(cat vault-keys.json | jq -r ".root_token")
+        kubectl exec vault-0 -- vault login $VAULT_ROOT_TOKEN
+        export graf_admin_pw=$(kubectl get secret -n monitoring loki-grafana -o jsonpath="{.data.admin-password}" | base64 --decode)
+        kubectl exec vault-0 -- vault write secrets/grafana/admin pw=$graf_admin_pw
+      tags:
+        - loki
       when: monitoring_stack == 'loki'

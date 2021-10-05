@@ -4,9 +4,8 @@ grafana:
     enabled: true
     annotations:
       cert-manager.io/cluster-issuer: letsencrypt
-      external-dns.alpha.kubernetes.io/target: {{ ingress_external_hostname }}
-      kubernetes.io/ingress.class: {{ ingress_class }}
-      kubernetes.io/ingress.provider: {{ ingress_class }}
+      external-dns.alpha.kubernetes.io/target: {{ ingress_internal_hostname }}
+      kubernetes.io/ingress.class: {{ int_ingress_classname }}
     hosts: 
       - {{ grafana_domain }}
     tls:
@@ -20,7 +19,13 @@ prometheus:
       enabled: false
   server:
     persistentVolume:
-      enabled: false
+      enabled: true
 loki:
   persistence:
     enabled: true
+    storageClassName: {{ storage_class_name }}
+    size: 5Gi
+  config:
+    table_manager:
+      retention_deletes_enabled: true
+      retention_period: 72h     
