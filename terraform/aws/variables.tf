@@ -162,5 +162,6 @@ locals {
   public_zone_id  = var.create_public_zone == "yes" ? aws_route53_zone.public[0].zone_id : data.aws_route53_zone.public[0].zone_id
   private_zone_id  = var.create_private_zone == "yes" ? aws_route53_zone.private[0].zone_id : data.aws_route53_zone.private[0].zone_id
   external_http_cidr_blocks = length(var.whitelist_ip_file) > 0 ? jsondecode(file(var.whitelist_ip_file)) : ["0.0.0.0/0"]
+  client_vpn_cidr_block = length(var.vpn_client_ip_file) > 0 ? jsondecode(file(var.vpn_client_ip_file)) : ["0.0.0.0/0"]
   #internal_http_cidr_blocks = length(var.whitelist_ip_file) > 0 ? jsondecode(file(var.whitelist_ip_file)) : ["0.0.0.0/0"]
 }
