@@ -79,6 +79,30 @@
         label: "{{ item.key }}"
       tags:
         - pm4ml
+    - name: Upload pm4ml ca secret files
+      vars:
+        tls_key: "{{ internal_managed_ca_privkey_base64 }}"
+        tls_cert: "{{ internal_managed_ca_cert_base64 }}"
+      template:
+        src: "templates/pm4ml.casecret.yml.j2"
+        dest: "{{ tmpvalues.path }}/{{ item.key }}.pm4ml.casecret.yml"
+      loop: "{{ pm4ml | dict2items }}"
+      loop_control:
+        label: "{{ item.key }}"
+      tags:
+        - pm4ml
+      when: internal_managed_tls == 'no'
+
+    - name: Upload pm4ml crd files
+      template:
+        src: "templates/pm4ml.caissuer.yml.j2"
+        dest: "{{ tmpvalues.path }}/{{ item.key }}.pm4ml.caissuer.yml"
+      loop: "{{ pm4ml | dict2items }}"
+      loop_control:
+        label: "{{ item.key }}"
+      tags:
+        - pm4ml
+      when: internal_managed_tls == 'no'
 
     - name: Upload pm4ml vault policy files
       template:
@@ -89,6 +113,16 @@
         label: "{{ item.key }}"
       tags:
         - pm4ml
+    - name: Deploy custom CA objects
+      shell: |
+        kubectl apply -n {{ item.key }} -f "{{ tmpvalues.path }}/{{ item.key }}.pm4ml.casecret.yml"
+        kubectl apply -n {{ item.key }} -f "{{ tmpvalues.path }}/{{ item.key }}.pm4ml.caissuer.yml"
+      loop: "{{ pm4ml | dict2items }}"
+      loop_control:
+        label: "{{ item.key }}"
+      tags:
+        - pm4ml
+      when: internal_managed_tls == 'no'
 
     - name: Deploy pm4ml helm chart
       shell: |
@@ -168,7 +202,7 @@
       tags:
         - pm4ml
     #get cert man servaccount secret
-    - name: Deploy pm4ml helm chart
+    - name: Deploy pm4ml cert-man objects
       shell: |
         SEC_NAME=$(kubectl get serviceaccount vault-cert-manager-auth -n cert-manager -o json | jq -r ".secrets[].name")
         sed -i "s/##SEC_NAME##/${SEC_NAME}/g" {{ tmpvalues.path }}/{{ item.key }}.vault.issuer.yml

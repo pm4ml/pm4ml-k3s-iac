@@ -37,11 +37,19 @@ frontend:
         paths: ['/']
     annotations:
       kubernetes.io/ingress.class: {{ pm4ml_ingress_classname }}
+      {% if internal_managed_tls == "yes" %}
       cert-manager.io/cluster-issuer: letsencrypt
+      {% else %}
+      cert-manager.io/issuer: ca-issuer
+      {% endif %}
       external-dns.alpha.kubernetes.io/target: {{ dfsp_access_lb_hostname }}
       nginx.ingress.kubernetes.io/rewrite-target: /
     tls:
+    {% if internal_managed_tls == "yes" %}
     - secretName: pm4ml-tls
+    {% else %}
+    - secretName: ca-key-pair
+    {% endif %}
       hosts:
         - "*.{{ item.key }}.{{ item.value.pm4ml_subdomain }}"
 
@@ -68,11 +76,19 @@ experience-api:
         paths: ['/']
     annotations:
       kubernetes.io/ingress.class: {{ pm4ml_ingress_classname }}
+      {% if internal_managed_tls == "yes" %}
       cert-manager.io/cluster-issuer: letsencrypt
+      {% else %}
+      cert-manager.io/issuer: ca-issuer
+      {% endif %}
       external-dns.alpha.kubernetes.io/target: {{ dfsp_access_lb_hostname }}
       nginx.ingress.kubernetes.io/rewrite-target: /
     tls:
+    {% if internal_managed_tls == "yes" %}
     - secretName: pm4ml-tls
+    {% else %}
+    - secretName: ca-key-pair
+    {% endif %}
       hosts:
         - "*.{{ item.key }}.{{ item.value.pm4ml_subdomain }}"
 
@@ -132,15 +148,19 @@ mojaloop-core-connector:
       kubernetes.io/ingress.class: {{ pm4ml_ingress_classname }}
       external-dns.alpha.kubernetes.io/target: {{ dfsp_access_lb_hostname }}
       nginx.ingress.kubernetes.io/rewrite-target: /
-      {% if internal_managed_cc_tls == "yes" %}
+      {% if internal_managed_tls == "yes" %}
       cert-manager.io/cluster-issuer: letsencrypt
+      {% else %}
+      cert-manager.io/issuer: ca-issuer
       {% endif %}
-    {% if internal_managed_cc_tls == "yes" %}
     tls:
+    {% if internal_managed_tls == "yes" %}
     - secretName: pm4ml-tls
+    {% else %}
+    - secretName: ca-key-pair
+    {% endif %}
       hosts:
         - "*.{{ item.key }}.{{ item.value.pm4ml_subdomain }}"
-    {% endif %}
 
 pm4ml-mojaloop-connector:
   imagePullCredentials: *imagePullCredentials
@@ -209,10 +229,18 @@ keycloak:
           - /
     annotations:
       kubernetes.io/ingress.class: {{ pm4ml_ingress_classname }}
+      {% if internal_managed_tls == "yes" %}
       cert-manager.io/cluster-issuer: letsencrypt
+      {% else %}
+      cert-manager.io/issuer: ca-issuer
+      {% endif %}
       external-dns.alpha.kubernetes.io/target: {{ dfsp_access_lb_hostname }}
     tls:
+    {% if internal_managed_tls == "yes" %}
     - secretName: pm4ml-tls
+    {% else %}
+    - secretName: ca-key-pair
+    {% endif %}
       hosts:
         - "*.{{ item.key }}.{{ item.value.pm4ml_subdomain }}"
   extraVolumes: |
