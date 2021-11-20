@@ -20,6 +20,7 @@ module "vpn" {
 variable "cgw_ip_address" {
   description = "IP address of the client VPN endpoint"
   type        = string
+  default     = ""
 }
 
 

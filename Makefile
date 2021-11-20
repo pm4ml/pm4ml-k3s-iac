@@ -110,7 +110,9 @@ pm4ml_dfsp_internal_access_only?=no
 internal_pm4ml_instance?=no
 k3s_version?=v1.21.2+k3s1
 install_portainer?=no
-internal_managed_cc_tls?=yes
+internal_managed_tls?=yes
+internal_managed_cert_file?=
+internal_managed_privkey_file?=
 whitelist_ip_file?=
 extra_tag_file?=
 vpn_client_ip_file?=
@@ -351,7 +353,9 @@ config: .env ## Run first-time configuration
 		agent_volume_size=$$(readConfigVar "K3s Agent volume size (GB)" "agent_volume_size" "$(agent_volume_size)")
 	fi
 	install_portainer=$$(readConfigVar "Install portainer? (yes|no)" "install_portainer" "$(install_portainer)")
-	internal_managed_cc_tls=$$(readConfigVar "Install portainer? (yes|no)" "internal_managed_cc_tls" "$(internal_managed_cc_tls)")
+	internal_managed_tls=$$(readConfigVar "internal vs external managed tls certs? (yes|no)" "internal_managed_tls" "$(internal_managed_tls)")
+	internal_managed_cert_file=$$(readConfigVar "external tls cert " "internal_managed_cert_file" "$(internal_managed_cert_file)")
+	internal_managed_privkey_file=$$(readConfigVar "external tls cert priv key" "internal_managed_privkey_file" "$(internal_managed_privkey_file)")
 	whitelist_ip_file=$$(readConfigVar "whitelist file for external" "whitelist_ip_file" "$(whitelist_ip_file)")
 	vpn_client_ip_file=$$(readConfigVar "whitelist file for external" "vpn_client_ip_file" "$(vpn_client_ip_file)")
 	extra_tag_file=$$(readConfigVar "extra tag file" "extra_tag_file" "$(extra_tag_file)")

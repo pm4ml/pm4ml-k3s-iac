@@ -1,20 +1,47 @@
 default: 
   image: 
-    name: ghcr.io/modusintegration/k3sbootstrap:0.9.17
+    name: ghcr.io/pm4ml/k3sbootstrap:0.14.0
   before_script:
-    - "which ssh-agent || ( apt-get update -y && apt-get install openssh-client -y )"
-    - eval `ssh-agent`
-    - mkdir -p ~/.ssh
-    - chmod 700 ~/.ssh
-    - echo "$GITHUB_SSH_KEY" | tr -d '\r' | ssh-add -
-    - '[[ -f /.dockerenv ]] && echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config'
-    - mkdir -p ~/.aws && echo "$AWS_CONFIG_FILE" >> ~/.aws/credentials
+    - test -n "$BUCKET"
+    - test -n "$PM4ML_ENVIRONMENT"
+    - test -n "$REGION"
+    - sed -i "s/##accesskeyid##/${AWS_ACCESS_KEY_ID}/g" /k3s-boot/aws_conf
+    - sed -i "s|##accesssecret##|${AWS_SECRET_ACCESS_KEY}|g" /k3s-boot/aws_conf
+    - sed -i "s/##region##/${REGION}/g" /k3s-boot/aws_conf
+    - mkdir -p ~/.aws && cp /k3s-boot/aws_conf ~/.aws/credentials  
+    - export TF_VAR_bucket=$BUCKET
     - if [ -d ./k3s-sync-dir ]; then cp -r ./k3s-sync-dir/. /k3s-boot; else echo "not local files to copy"; fi 
+    - sed -i "s/##region##/${REGION}/g" /k3s-boot/.env
+variables:
+  GIT_SSL_NO_VERIFY: "true"
 stages:
+  - "Validate Terraform"
+  - "Apply Terraform Changes"
   - "Deploy Platform"
   - "Deploy PM4MLs"
   - "Reset PM4MLs"
   - "Destroy Platform"
+
+Plan k3s Cluster:
+  stage: "Validate Terraform"
+  script:
+    - export
+    - cd /k3s-boot
+    - make backend -- -auto-approve    
+    - make init
+    - make plan
+  when: manual
+
+Apply Terraform k3s:
+  stage: "Apply Terraform Changes"
+  script:
+    - export
+    - cd /k3s-boot
+    - make backend -- -auto-approve    
+    - make init
+    - make plan
+    - make apply -- -auto-approve
+  when: manual
 
 Destroy k3s Cluster:
   stage: "Destroy Platform"
@@ -54,9 +81,9 @@ Create k3s Cluster:
     - if [ ! -f /k3s-boot/vault-keys.json ]; then make vault; else echo "found vault, skipping make vault"; fi 
     - aws s3 cp /k3s-boot/vault-keys.json s3://$BUCKET/$PM4ML_ENVIRONMENT/ --sse
     - make wireguard
-    #- aws s3 sync /k3s-boot/wireguard.clients s3://$BUCKET/$PM4ML_ENVIRONMENT/wireguard.clients --sse
     - aws s3 cp /k3s-boot/wireguard.private.key s3://$BUCKET/$PM4ML_ENVIRONMENT/ --sse
     - aws s3 cp /k3s-boot/wireguard.public.key s3://$BUCKET/$PM4ML_ENVIRONMENT/ --sse
+    - make monitoring
   when: manual
 
 Install PM4MLs:

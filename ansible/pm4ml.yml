@@ -10,6 +10,8 @@
     dfsp_access_lb_hostname: "{{ ingress_internal_hostname if pm4ml_dfsp_internal_access_only == 'yes' else ingress_external_hostname }}"
     switch_access_lb_hostname: "{{ ingress_external_hostname }}"
     pm4ml_ingress_classname: "{{ int_ingress_classname if pm4ml_dfsp_internal_access_only == 'yes' else ext_ingress_classname }}"
+    internal_managed_privkey_base64: "{{ lookup('file', internal_managed_privkey_file) | b64encode if internal_managed_tls == 'no' else '' }}"
+    internal_managed_cert_base64: "{{ lookup('file', internal_managed_cert_file) | b64encode if internal_managed_tls == 'no' else '' }}"
   tasks:
     - name: Bare include (free-form)
       include_vars:
@@ -79,6 +81,19 @@
         label: "{{ item.key }}"
       tags:
         - pm4ml
+    - name: Upload pm4ml ca secret files
+      vars:
+        tls_key: "{{ internal_managed_privkey_base64 }}"
+        tls_cert: "{{ internal_managed_cert_base64 }}"
+      template:
+        src: "templates/pm4ml.casecret.yml.j2"
+        dest: "{{ tmpvalues.path }}/{{ item.key }}.pm4ml.casecret.yml"
+      loop: "{{ pm4ml | dict2items }}"
+      loop_control:
+        label: "{{ item.key }}"
+      tags:
+        - pm4ml
+      when: internal_managed_tls == 'no'
 
     - name: Upload pm4ml vault policy files
       template:
@@ -89,6 +104,16 @@
         label: "{{ item.key }}"
       tags:
         - pm4ml
+    - name: Deploy custom CA objects
+      shell: |
+        kubectl create namespace {{ item.key }}
+        kubectl apply -n {{ item.key }} -f "{{ tmpvalues.path }}/{{ item.key }}.pm4ml.casecret.yml"
+      loop: "{{ pm4ml | dict2items }}"
+      loop_control:
+        label: "{{ item.key }}"
+      tags:
+        - pm4ml
+      when: internal_managed_tls == 'no'
 
     - name: Deploy pm4ml helm chart
       shell: |
@@ -168,7 +193,7 @@
       tags:
         - pm4ml
     #get cert man servaccount secret
-    - name: Deploy pm4ml helm chart
+    - name: Deploy pm4ml cert-man objects
       shell: |
         SEC_NAME=$(kubectl get serviceaccount vault-cert-manager-auth -n cert-manager -o json | jq -r ".secrets[].name")
         sed -i "s/##SEC_NAME##/${SEC_NAME}/g" {{ tmpvalues.path }}/{{ item.key }}.vault.issuer.yml
