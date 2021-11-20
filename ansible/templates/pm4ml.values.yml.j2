@@ -39,8 +39,6 @@ frontend:
       kubernetes.io/ingress.class: {{ pm4ml_ingress_classname }}
       {% if internal_managed_tls == "yes" %}
       cert-manager.io/cluster-issuer: letsencrypt
-      {% else %}
-      cert-manager.io/issuer: ca-issuer
       {% endif %}
       external-dns.alpha.kubernetes.io/target: {{ dfsp_access_lb_hostname }}
       nginx.ingress.kubernetes.io/rewrite-target: /
@@ -78,8 +76,6 @@ experience-api:
       kubernetes.io/ingress.class: {{ pm4ml_ingress_classname }}
       {% if internal_managed_tls == "yes" %}
       cert-manager.io/cluster-issuer: letsencrypt
-      {% else %}
-      cert-manager.io/issuer: ca-issuer
       {% endif %}
       external-dns.alpha.kubernetes.io/target: {{ dfsp_access_lb_hostname }}
       nginx.ingress.kubernetes.io/rewrite-target: /
@@ -150,8 +146,6 @@ mojaloop-core-connector:
       nginx.ingress.kubernetes.io/rewrite-target: /
       {% if internal_managed_tls == "yes" %}
       cert-manager.io/cluster-issuer: letsencrypt
-      {% else %}
-      cert-manager.io/issuer: ca-issuer
       {% endif %}
     tls:
     {% if internal_managed_tls == "yes" %}
@@ -231,8 +225,6 @@ keycloak:
       kubernetes.io/ingress.class: {{ pm4ml_ingress_classname }}
       {% if internal_managed_tls == "yes" %}
       cert-manager.io/cluster-issuer: letsencrypt
-      {% else %}
-      cert-manager.io/issuer: ca-issuer
       {% endif %}
       external-dns.alpha.kubernetes.io/target: {{ dfsp_access_lb_hostname }}
     tls:

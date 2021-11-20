@@ -38,8 +38,8 @@ all:
     longhorn_version: "1.1.2"
     install_portainer: '{{ install_portainer }}'
     internal_managed_tls: '{{ internal_managed_tls }}'
-    internal_managed_ca_cert_base64: '{{ internal_managed_ca_cert_base64 }}'
-    internal_managed_ca_privkey_base64: '{{ internal_managed_ca_privkey_base64 }}'
+    internal_managed_cert_file: '{{ internal_managed_cert_file }}'
+    internal_managed_privkey_file: '{{ internal_managed_privkey_file }}'
     # --------------
 bastion:
   vars:

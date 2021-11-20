@@ -111,8 +111,8 @@ internal_pm4ml_instance?=no
 k3s_version?=v1.21.2+k3s1
 install_portainer?=no
 internal_managed_tls?=yes
-internal_managed_ca_cert_base64?=
-internal_managed_ca_privkey_base64?=
+internal_managed_cert_file?=
+internal_managed_privkey_file?=
 whitelist_ip_file?=
 extra_tag_file?=
 vpn_client_ip_file?=
@@ -354,8 +354,8 @@ config: .env ## Run first-time configuration
 	fi
 	install_portainer=$$(readConfigVar "Install portainer? (yes|no)" "install_portainer" "$(install_portainer)")
 	internal_managed_tls=$$(readConfigVar "internal vs external managed tls certs? (yes|no)" "internal_managed_tls" "$(internal_managed_tls)")
-	internal_managed_ca_cert_base64=$$(readConfigVar "external tls cert in base64 enc" "internal_managed_ca_cert_base64" "$(internal_managed_ca_cert_base64)")
-	internal_managed_ca_privkey_base64=$$(readConfigVar "external tls cert priv key in base64 enc" "internal_managed_ca_privkey_base64" "$(internal_managed_ca_privkey_base64)")
+	internal_managed_cert_file=$$(readConfigVar "external tls cert " "internal_managed_cert_file" "$(internal_managed_cert_file)")
+	internal_managed_privkey_file=$$(readConfigVar "external tls cert priv key" "internal_managed_privkey_file" "$(internal_managed_privkey_file)")
 	whitelist_ip_file=$$(readConfigVar "whitelist file for external" "whitelist_ip_file" "$(whitelist_ip_file)")
 	vpn_client_ip_file=$$(readConfigVar "whitelist file for external" "vpn_client_ip_file" "$(vpn_client_ip_file)")
 	extra_tag_file=$$(readConfigVar "extra tag file" "extra_tag_file" "$(extra_tag_file)")
