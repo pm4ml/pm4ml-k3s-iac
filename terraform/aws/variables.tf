@@ -127,6 +127,12 @@ variable "create_vpc_peering" {
   type        = bool
   description = "Boolean for creating peering to allow for running of test scripts/etc in priv network"
 }
+variable "use_aws_acm_cert" {
+  default     = false
+  type        = bool
+  description = "Boolean for using aws acm cert on nlb"
+}
+
 variable "peer_vpc_id" {
   default     = "na"
   type        = string
