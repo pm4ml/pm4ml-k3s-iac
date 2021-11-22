@@ -89,18 +89,49 @@ resource "aws_lb_target_group" "internal-8080" {
 #
 # External load balancer
 #
+
+resource "aws_acm_certificate" "wildcard-cert" {
+  count      = var.use_aws_acm_cert ? 1 : 0
+  domain_name       = aws_route53_record.public-ns[0].fqdn
+  validation_method = "DNS"
+  subject_alternative_names = ["*.${aws_route53_record.public-ns[0].fqdn}"]
+
+  tags = merge({ Name = "${local.name}-wildcard-cert" }, local.common_tags)
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "aws_route53_record" "cert_validation" {
+  count      = var.use_aws_acm_cert ? 1 : 0
+  allow_overwrite = true
+  name            = tolist(aws_acm_certificate.wildcard-cert[0].domain_validation_options)[0].resource_record_name
+  records         = [ tolist(aws_acm_certificate.wildcard-cert[0].domain_validation_options)[0].resource_record_value ]
+  type            = tolist(aws_acm_certificate.wildcard-cert[0].domain_validation_options)[0].resource_record_type
+  zone_id  = aws_route53_zone.public[0].id
+  ttl      = 60
+}
+
+resource "aws_acm_certificate_validation" "cert" {
+  count      = var.use_aws_acm_cert ? 1 : 0
+  certificate_arn         = aws_acm_certificate.wildcard-cert[0].arn
+  validation_record_fqdns = [ aws_route53_record.cert_validation[0].fqdn ]
+}
+
 resource "aws_lb" "lb" {
   internal           = false
   load_balancer_type = "network"
   subnets            = module.vpc.public_subnets
-
   tags = merge({ Name = "${local.name}-public" }, local.common_tags)
 }
 
 resource "aws_lb_listener" "port_443" {
   load_balancer_arn = aws_lb.lb.arn
   port              = "443"
-  protocol          = "TCP"
+  protocol          = var.use_aws_acm_cert ? "TLS" : "TCP"
+  ssl_policy        = var.use_aws_acm_cert ? "ELBSecurityPolicy-TLS13-1-2-2021-06" : null
+  certificate_arn   = var.use_aws_acm_cert ? aws_acm_certificate.wildcard-cert[0].arn : null
 
   default_action {
     type             = "forward"
@@ -132,7 +163,7 @@ resource "aws_lb_listener" "port_51820" {
 
 resource "aws_lb_target_group" "agent-443" {
   port     = 443
-  protocol = "TCP"
+  protocol = var.use_aws_acm_cert ? "TLS" : "TCP"
   vpc_id   = module.vpc.vpc_id
 
   health_check {
