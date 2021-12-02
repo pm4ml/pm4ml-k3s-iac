@@ -126,6 +126,39 @@ resource "aws_lb" "lb" {
   tags = merge({ Name = "${local.name}-public" }, local.common_tags)
 }
 
+resource "aws_lb_listener" "port_9443" {
+  count      = var.use_aws_acm_cert ? 1 : 0
+  load_balancer_arn = aws_lb.lb.arn
+  port              = "9443"
+  protocol          = "TCP"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.agent-9443[0].arn
+  }
+}
+
+resource "aws_lb_target_group" "agent-9443" {
+  count      = var.use_aws_acm_cert ? 1 : 0
+  port     = 443
+  protocol = "TCP"
+  vpc_id   = module.vpc.vpc_id
+
+  health_check {
+    interval            = 10
+    timeout             = 6
+    path                = "/healthz"
+    port                = 80
+    protocol            = "HTTP"
+    healthy_threshold   = 3
+    unhealthy_threshold = 3
+    matcher             = "200-399"
+  }
+
+  tags = merge({ Name = "${local.name}-agent-9443" }, local.common_tags)
+}
+
+
 resource "aws_lb_listener" "port_443" {
   load_balancer_arn = aws_lb.lb.arn
   port              = "443"

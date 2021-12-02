@@ -193,13 +193,13 @@ resource "aws_autoscaling_group" "k3s_agent" {
   min_size            = var.agent_node_count
   vpc_zone_identifier = module.vpc.private_subnets
 
-  target_group_arns = [
+  target_group_arns = concat ([
     aws_lb_target_group.agent-80.arn,
     aws_lb_target_group.agent-443.arn,
     aws_lb_target_group.internal-8080.arn,
     aws_lb_target_group.internal-8443.arn,
     aws_lb_target_group.agent-51820.arn
-  ]
+  ], var.use_aws_acm_cert ? [aws_lb_target_group.agent-9443[0].arn] : [])
 
   launch_template {
     id      = aws_launch_template.k3s_agent.id
