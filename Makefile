@@ -80,6 +80,7 @@ cloud_provider?="aws"
 project?="mojaloop"
 environment?="k3s"
 ingress_name?=nginx
+ext_gw_listen_port?=9443
 monitoring_stack?=efk
 master_instance_type?=m5.large
 master_volume_size?=100
@@ -359,6 +360,7 @@ config: .env ## Run first-time configuration
 	whitelist_ip_file=$$(readConfigVar "whitelist file for external" "whitelist_ip_file" "$(whitelist_ip_file)")
 	vpn_client_ip_file=$$(readConfigVar "whitelist file for external" "vpn_client_ip_file" "$(vpn_client_ip_file)")
 	extra_tag_file=$$(readConfigVar "extra tag file" "extra_tag_file" "$(extra_tag_file)")
+	ext_gw_listen_port=$$(readConfigVar "port that switch extgw listens to" "ext_gw_listen_port" "$(ext_gw_listen_port)")
 	ingress_name=$$(readConfigVar "Ingress controller (nginx or traefik or ambassador)" "ingress_name" "$(ingress_name)")
 	monitoring_stack=$$(readConfigVar "Monitoring stack (efk or loki) [See README if unsure]" "monitoring_stack" "$(monitoring_stack)")
 	letsencrypt_email=$$(readConfigVar "Lets Encrypt Account Email" "letsencrypt_email" "$(letsencrypt_email)")

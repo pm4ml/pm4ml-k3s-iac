@@ -40,6 +40,7 @@ all:
     internal_managed_tls: '{{ internal_managed_tls }}'
     internal_managed_cert_file: '{{ internal_managed_cert_file }}'
     internal_managed_privkey_file: '{{ internal_managed_privkey_file }}'
+    mojaloop_switch_extgw_port: '{{ ext_gw_listen_port }}'
     # --------------
 bastion:
   vars:

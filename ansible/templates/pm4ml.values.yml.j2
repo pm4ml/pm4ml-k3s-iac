@@ -164,10 +164,10 @@ pm4ml-mojaloop-connector:
     JWS_SIGN: true
     JWS_SIGNING_KEY_PATH: /jwsSigningKey/private.key
     VALIDATE_INBOUND_JWS: false
-    PEER_ENDPOINT: "{{ item.value.extgw_fqdn }}:8243/fsp/1.0"
+    PEER_ENDPOINT: "{{ item.value.extgw_fqdn }}:{{ mojaloop_switch_extgw_port }}/fsp/1.0"
     OUTBOUND_MUTUAL_TLS_ENABLED: true
     INBOUND_MUTUAL_TLS_ENABLED: false
-    OAUTH_TOKEN_ENDPOINT: "https://{{ item.value.extgw_fqdn }}:8243/token"
+    OAUTH_TOKEN_ENDPOINT: "https://{{ item.value.extgw_fqdn }}:{{ mojaloop_switch_extgw_port }}/token"
     OAUTH_CLIENT_KEY: "{{ item.value.extgw_client_key }}"
     OAUTH_CLIENT_SECRET: "{{ item.value.extgw_client_secret }}"
     BACKEND_ENDPOINT: "{{ item.value.helm_release_name }}-mojaloop-core-connector:3003"
