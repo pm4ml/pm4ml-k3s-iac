@@ -5,7 +5,7 @@ resource "aws_vpc_peering_connection" "iac_pc" {
   auto_accept = true
 
   accepter {
-    allow_remote_vpc_dns_resolution = true
+    allow_remote_vpc_dns_resolution = false
   }
 
   requester {
