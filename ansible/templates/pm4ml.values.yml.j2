@@ -23,8 +23,6 @@ frontendWebOrigins: &frontendWebOrigins
 
 # this should be set to the FSPID assigned by the mojaloop hub to this DFSP
 dfspId: &dfspId "{{ item.value.dfsp_id }}"
-# this should be set to the ID of the default MCM environment for this DFSP
-mcmEnvironmentId: &mcmEnvironmentId 1
 
 frontend:
   imagePullCredentials: *imagePullCredentials
@@ -56,7 +54,6 @@ experience-api:
   env:
     enableMockData: false
     managementEndPoint: "{{ item.value.helm_release_name }}-management-api"
-    envId: *mcmEnvironmentId
     dfspId: *dfspId
     appKeys: ootu1yoo5geeS7izai4ox1Yae1Eey6ai
     authClientSecret: *experienceApiClientSecret
@@ -92,8 +89,7 @@ management-api:
   serviceAccountName: {{ item.key }}-vault-pm4ml-auth
   imagePullCredentials: *imagePullCredentials
   env:
-    CACHE_HOST: redis-master
-    ENV_ID: *mcmEnvironmentId
+    CACHE_URL: redis://redis-master:6379
     DFSP_ID: *dfspId
     MCM_SERVER_ENDPOINT: "{{ item.value.mcm_host_url }}/api"
     MCM_CLIENT_REFRESH_INTERVAL: 60
@@ -199,7 +195,7 @@ pm4ml-mojaloop-connector:
       - host: "connector.{{ item.key }}.{{ item.value.pm4ml_subdomain }}"
     annotations:
       kubernetes.io/ingress.class: {{ ext_ingress_classname }}
-      cert-manager.io/cluster-issuer: vault-issuer-{{ item.key }}
+      #cert-manager.io/cluster-issuer: vault-issuer-{{ item.key }}
       external-dns.alpha.kubernetes.io/target: {{ switch_access_lb_hostname }}
       nginx.ingress.kubernetes.io/auth-tls-verify-client: "on"
       nginx.ingress.kubernetes.io/auth-tls-secret: "{{ item.key }}/mojaloop-connector-tls"
