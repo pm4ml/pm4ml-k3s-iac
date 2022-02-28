@@ -25,5 +25,6 @@ terraform {
       source = "nbering/ansible"
       version = "1.0.4"
     }
+    aws = "~> 3.74"
   }
 }
