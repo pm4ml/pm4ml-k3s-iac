@@ -170,7 +170,7 @@ pm4ml-mojaloop-connector:
     OAUTH_TOKEN_ENDPOINT: "https://{{ item.value.extgw_fqdn }}:{{ mojaloop_switch_extgw_port }}/token"
     OAUTH_CLIENT_KEY: "{{ item.value.extgw_client_key }}"
     OAUTH_CLIENT_SECRET: "{{ item.value.extgw_client_secret }}"
-    BACKEND_ENDPOINT: "{{ item.value.helm_release_name }}-pm4ml-mojaloop-core-connector:3003"
+    BACKEND_ENDPOINT: "{{ item.value.helm_release_name }}-mojaloop-core-connector:3003"
     MGMT_API_WS_URL: "{{ item.value.helm_release_name }}-management-api"
   {% if item.value.jws_public_keys is defined %}
   sharedJWSPubKeys:
