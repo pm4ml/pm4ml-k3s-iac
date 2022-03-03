@@ -14,7 +14,6 @@ management-api:
         "extensions": {
           "subjectAltName": {
             "dns": [
-              "test"
             ],
             "ips": [
             ]
@@ -35,7 +34,6 @@ management-api:
         "extensions": {
           "subjectAltName": {
             "dns": [
-              "test"
             ],
             "ips": [
             ]
