@@ -87,8 +87,8 @@ management-api:
     MCM_CLIENT_REFRESH_INTERVAL: 60
     PRIVATE_KEY_LENGTH: 2048
     PRIVATE_KEY_ALGORITHM: rsa
-    WS_URL: "{{ item.value.helm_release_name }}-mojaloop-connector"
-    WS_PORT: 4005
+    WS_URL: "{{ item.value.helm_release_name }}-pm4ml-mojaloop-connector"
+    WS_PORT: 4003
     AUTH_ENABLED: {{ item.value.mcm_auth_enabled }}
     AUTH_USER: {{ item.value.mcm_auth_user }}
     AUTH_PASS: {{ item.value.mcm_auth_pass }}
@@ -122,7 +122,7 @@ prometheus:
     - job_name: 'prometheus-blackbox-exporter'
       static_configs:
         - targets:
-          - "{{ item.value.helm_release_name }}-mojaloop-connector:4004"
+          - "{{ item.value.helm_release_name }}-pm4ml-mojaloop-connector:4004"
 
 mojaloop-core-connector:
   ingress:
