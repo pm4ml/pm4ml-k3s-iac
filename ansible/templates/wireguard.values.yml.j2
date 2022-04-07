@@ -27,3 +27,9 @@ persistence:
 
 nodeSelector:
   "node-role.kubernetes.io/master": "true"
+
+tolerations:
+  - key: "CriticalAddonsOnly"
+    operator: "Equal"
+    value: "true"
+    effect: "NoExecute"

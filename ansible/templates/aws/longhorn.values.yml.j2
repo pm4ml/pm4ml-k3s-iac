@@ -6,3 +6,17 @@ persistence:
 defaultSettings:
   backupTarget: "s3://{{ longhorn_backups_bucket_name }}@{{ region }}/"
   backupTargetCredentialSecret: "longhorn-backups-aws-secret"
+  taintToleration: "CriticalAddonsOnly=true:NoExecute"
+
+longhornDriver:
+  tolerations:
+    - key: "CriticalAddonsOnly"
+      operator: "Equal"
+      value: "true"
+      effect: "NoExecute"
+longhornManager:
+  tolerations:
+    - key: "CriticalAddonsOnly"
+      operator: "Equal"
+      value: "true"
+      effect: "NoExecute"
