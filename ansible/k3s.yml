@@ -23,7 +23,7 @@
     - name: Check whether to install traefik
       set_fact:
         k3s_extra_args_flag: --k3s-extra-args
-        k3s_extra_args_value: "--no-deploy traefik"
+        k3s_extra_args_value: "--no-deploy traefik --node-taint CriticalAddonsOnly=true:NoExecute"
       when: ingress_name != 'traefik'
     - name: Install k3s on master
       become: yes
