@@ -2,11 +2,6 @@
 ingress:
   enabled: false
 
-imagePullCredentials: &imagePullCredentials
-  user: "{{ item.value.private_reg_user }}"
-  pass: "{{ item.value.private_reg_pass }}"
-  registry: "{{ item.value.private_reg_url }}"
-
 experienceApiClientSecret: &experienceApiClientSecret "38f84299-d9b4-4d4e-a195-c1996d028406"
 
 frontendRootUrl: &frontendRootUrl "https://portal.{{ item.key }}.{{ item.value.pm4ml_subdomain }}/"
@@ -23,11 +18,8 @@ frontendWebOrigins: &frontendWebOrigins
 
 # this should be set to the FSPID assigned by the mojaloop hub to this DFSP
 dfspId: &dfspId "{{ item.value.dfsp_id }}"
-# this should be set to the ID of the default MCM environment for this DFSP
-mcmEnvironmentId: &mcmEnvironmentId 1
 
 frontend:
-  imagePullCredentials: *imagePullCredentials
   env:
     API_BASE_URL: "https://experience-api.{{ item.key }}.{{ item.value.pm4ml_subdomain }}"
   ingress:
@@ -52,11 +44,9 @@ frontend:
         - "*.{{ item.key }}.{{ item.value.pm4ml_subdomain }}"
 
 experience-api:
-  imagePullCredentials: *imagePullCredentials
   env:
     enableMockData: false
     managementEndPoint: "{{ item.value.helm_release_name }}-management-api"
-    envId: *mcmEnvironmentId
     dfspId: *dfspId
     appKeys: ootu1yoo5geeS7izai4ox1Yae1Eey6ai
     authClientSecret: *experienceApiClientSecret
@@ -90,14 +80,12 @@ experience-api:
 
 management-api:
   serviceAccountName: {{ item.key }}-vault-pm4ml-auth
-  imagePullCredentials: *imagePullCredentials
   env:
-    CACHE_HOST: redis-master
-    ENV_ID: *mcmEnvironmentId
+    CACHE_URL: redis://redis-master:6379
     DFSP_ID: *dfspId
     MCM_SERVER_ENDPOINT: "{{ item.value.mcm_host_url }}/api"
     MCM_CLIENT_REFRESH_INTERVAL: 60
-    PRIVATE_KEY_LENGTH: 4096
+    PRIVATE_KEY_LENGTH: 2048
     PRIVATE_KEY_ALGORITHM: rsa
     WS_URL: "{{ item.value.helm_release_name }}-pm4ml-mojaloop-connector"
     WS_PORT: 4003
@@ -109,9 +97,14 @@ management-api:
     VAULT_AUTH_METHOD: K8S
     VAULT_K8S_ROLE: {{ item.key }}-vault-pm4ml-auth
     VAULT_K8S_TOKEN_FILE: /var/run/secrets/kubernetes.io/serviceaccount/token
-    VAULT_PKI_BASE_DOMAIN: {{ item.key }}.{{ base_domain }}
+    VAULT_PKI_SERVER_ROLE: {{ item.key }}.{{ base_domain }}
+    VAULT_PKI_CLIENT_ROLE: {{ item.key }}.{{ base_domain }}
     VAULT_MOUNT_PKI: pki-{{ base_domain }}-{{ item.key }}
     VAULT_MOUNT_KV: secrets/pm4ml/{{ item.key }}
+    MOJALOOP_CONNECTOR_FQDN: "connector.{{ item.key }}.{{ item.value.pm4ml_subdomain }}"
+    CERT_MANAGER_ENABLED: true
+    CERT_MANAGER_SERVER_CERT_SECRET_NAME: mojaloop-connector-tls
+    CERT_MANAGER_SERVER_CERT_SECRET_NAMESPACE: {{ item.key }}
   ingress:
     enabled: false
 
@@ -132,7 +125,6 @@ prometheus:
           - "{{ item.value.helm_release_name }}-pm4ml-mojaloop-connector:4004"
 
 mojaloop-core-connector:
-  imagePullCredentials: *imagePullCredentials
   ingress:
     enabled: true
     hosts:
@@ -157,13 +149,11 @@ mojaloop-core-connector:
         - "*.{{ item.key }}.{{ item.value.pm4ml_subdomain }}"
 
 pm4ml-mojaloop-connector:
-  imagePullCredentials: *imagePullCredentials
   env:
     DFSP_ID: *dfspId
     CACHE_HOST: redis-master
     JWS_SIGN: true
-    JWS_SIGNING_KEY_PATH: /jwsSigningKey/private.key
-    VALIDATE_INBOUND_JWS: false
+    VALIDATE_INBOUND_JWS: true
     PEER_ENDPOINT: "{{ item.value.extgw_fqdn }}:{{ mojaloop_switch_extgw_port }}/fsp/1.0"
     OUTBOUND_MUTUAL_TLS_ENABLED: true
     INBOUND_MUTUAL_TLS_ENABLED: false
@@ -172,34 +162,14 @@ pm4ml-mojaloop-connector:
     OAUTH_CLIENT_SECRET: "{{ item.value.extgw_client_secret }}"
     BACKEND_ENDPOINT: "{{ item.value.helm_release_name }}-mojaloop-core-connector:3003"
     MGMT_API_WS_URL: "{{ item.value.helm_release_name }}-management-api"
-  {% if item.value.jws_public_keys is defined %}
-  sharedJWSPubKeys:
-    {% for jws_pub_key_key, jws_pub_key_value in item.value.jws_public_keys.items() %}
-    {{ jws_pub_key_key | indent( width=4) }}: |-
-      {{ jws_pub_key_value | indent( width=6) }}
-    {% endfor %}
-  {% endif %}
-  secrets:
-    {% if item.value.jws_private_key is defined %}
-    jws:
-      privateKey: |-
-        {{ item.value.jws_private_key | indent( width=8) }}
-    {% endif %}
-    tls:
-      outbound:
-        cacert: |-
-          {{ item.value.tls_outbound_cacert | indent( width=10) }}
-        cert: |-
-          {{ item.value.tls_outbound_cert | indent( width=10) }}
-        key: |-
-          {{ item.value.tls_outbound_privkey | indent( width=10) }}
+
   ingress:
     enabled: true
     hosts:
       - host: "connector.{{ item.key }}.{{ item.value.pm4ml_subdomain }}"
     annotations:
       kubernetes.io/ingress.class: {{ ext_ingress_classname }}
-      cert-manager.io/cluster-issuer: vault-issuer-{{ item.key }}
+      #cert-manager.io/cluster-issuer: vault-issuer-{{ item.key }}
       external-dns.alpha.kubernetes.io/target: {{ switch_access_lb_hostname }}
       nginx.ingress.kubernetes.io/auth-tls-verify-client: "on"
       nginx.ingress.kubernetes.io/auth-tls-secret: "{{ item.key }}/mojaloop-connector-tls"

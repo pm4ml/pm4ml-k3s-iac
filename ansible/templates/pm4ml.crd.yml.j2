@@ -1,10 +1,10 @@
 apiVersion: cert-manager.io/v1alpha2
 kind: Certificate
 metadata:
-  name: {{ item.key }}-clientcert
+  name: mojaloop-connector-tls
   namespace: {{ item.key }}
 spec:
-  secretName: {{ item.key }}-clientcert-tls
+  secretName: mojaloop-connector-tls
   duration: 2160h # 90d
   renewBefore: 360h # 15d
   keySize: 2048
