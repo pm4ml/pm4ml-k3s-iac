@@ -1,5 +1,5 @@
 path "pki-{{ base_domain }}-{{ item.key }}/*" {
-  capabilities = ["read", "list"]
+  capabilities = ["create", "read", "update", "delete", "list", "sudo"]
 }
 
 path "pki-{{ base_domain }}-{{ item.key }}/issue/{{ item.key }}.{{ base_domain }}" {
