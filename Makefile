@@ -117,6 +117,7 @@ internal_managed_privkey_file?=
 whitelist_ip_file?=
 extra_tag_file?=
 vpn_client_ip_file?=
+grafana_internal_access_only?=yes
 ##
 # Configuration variables
 ##
@@ -369,6 +370,7 @@ config: .env ## Run first-time configuration
 	install_mojaloop=$$(readConfigVar "Install Mojaloop? (yes|no)" "install_mojaloop" "$(install_mojaloop)")
 	install_pm4ml=$$(readConfigVar "Install PM4ML? (yes|no)" "install_pm4ml" "$(install_pm4ml)")
 	install_sims=$$(readConfigVar "Install SIMS? (yes|no)" "install_sims" "$(install_sims)")
+	grafana_internal_access_only=$$(readConfigVar "grafana access only on vpn? (yes|no)" "grafana_internal_access_only" "$(grafana_internal_access_only)")
 
 	if [ $$install_mojaloop = "yes" ]; then 
 		mojaloop_version=$$(readConfigVar "Mojaloop version" "mojaloop_version" "$(mojaloop_version)")
