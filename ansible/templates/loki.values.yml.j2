@@ -4,8 +4,8 @@ grafana:
     enabled: true
     annotations:
       cert-manager.io/cluster-issuer: letsencrypt
-      external-dns.alpha.kubernetes.io/target: {{ ingress_internal_hostname }}
-      kubernetes.io/ingress.class: {{ int_ingress_classname }}
+      external-dns.alpha.kubernetes.io/target: {{ monitor_access_lb_hostname }}
+      kubernetes.io/ingress.class: {{ monitor_ingress_classname }}
     hosts: 
       - {{ grafana_domain }}
     tls:

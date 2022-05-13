@@ -6,6 +6,9 @@
     KUBECONFIG: /etc/rancher/k3s/k3s.yaml
   roles:
     - geerlingguy.helm
+  vars:
+    monitor_access_lb_hostname: "{{ ingress_internal_hostname if grafana_internal_access_only == 'yes' else ingress_external_hostname }}"
+    monitor_ingress_classname: "{{ int_ingress_classname if grafana_internal_access_only == 'yes' else ext_ingress_classname }}"
   tasks:
     - name: Create temporary directory
       tempfile:
