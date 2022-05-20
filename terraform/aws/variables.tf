@@ -148,6 +148,11 @@ variable "extra_tag_file" {
   type        = string
   description = "file name to extra tags from"
 }
+variable "aws_acm_wildcard_entry" {
+  default     = ""
+  type        = string
+  description = "name to add to domain for aws cert validation"
+}
 ###
 # Local copies of variables to allow for parsing
 ###
