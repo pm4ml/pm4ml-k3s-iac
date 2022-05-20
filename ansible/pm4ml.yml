@@ -204,7 +204,7 @@
         kubectl exec vault-0 -- vault secrets enable -path=pki-{{ base_domain }}-{{ item.key }} pki
         kubectl exec vault-0 -- vault secrets tune -max-lease-ttl=87600h pki-{{ base_domain }}-{{ item.key }}
         kubectl exec vault-0 -- vault write pki-{{ base_domain }}-{{ item.key }}/root/generate/internal common_name={{ item.key }}.{{ base_domain }} ttl=87600h -format=json > /tmp/{{ base_domain }}-{{ item.key }}.ca.json
-        kubectl exec vault-0 -- vault write pki-{{ base_domain }}-{{ item.key }}/roles/{{ item.key }}.{{ base_domain }} allowed_domains={{ item.key }}.{{ base_domain }} allow_subdomains=true allow_localhost=true enforce_hostnames=false ttl=2592000 max_ttl=2592000 require_cn=false key_bits=2048
+        kubectl exec vault-0 -- vault write pki-{{ base_domain }}-{{ item.key }}/roles/{{ item.key }}.{{ base_domain }} allowed_domains={{ item.key }}.{{ base_domain }} allow_subdomains=true allow_localhost=true enforce_hostnames=false ttl=7776000 max_ttl=7776000 require_cn=false key_bits=2048
         
         kubectl cp "{{ tmpvalues.path }}/{{ item.key }}.vault.pm4ml.policy.hcl" vault-0:/tmp/policy.hcl
         kubectl exec vault-0 -- vault write sys/policy/{{ item.key }}-vault-pm4ml-policy policy=@/tmp/policy.hcl
