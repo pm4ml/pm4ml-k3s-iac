@@ -94,8 +94,7 @@ resource "aws_acm_certificate" "wildcard-cert" {
   count      = var.use_aws_acm_cert ? 1 : 0
   domain_name       = aws_route53_record.public-ns[0].fqdn
   validation_method = "DNS"
-  subject_alternative_names = ["*.${aws_route53_record.public-ns[0].fqdn}"]
-
+  subject_alternative_names = ["*.${var.aws_acm_wildcard_entry}.${aws_route53_record.public-ns[0].fqdn}", "vpn.${aws_route53_record.public-ns[0].fqdn}","vault.${aws_route53_record.public-ns[0].fqdn}","grafana.${aws_route53_record.public-ns[0].fqdn}"]
   tags = merge({ Name = "${local.name}-wildcard-cert" }, local.common_tags)
 
   lifecycle {
@@ -104,19 +103,18 @@ resource "aws_acm_certificate" "wildcard-cert" {
 }
 
 resource "aws_route53_record" "cert_validation" {
-  count      = var.use_aws_acm_cert ? 1 : 0
+  count = 5 * (var.use_aws_acm_cert ? 1 : 0)
+  name            = aws_acm_certificate.wildcard-cert[0].domain_validation_options.*.resource_record_name[count.index]
+  records         = [aws_acm_certificate.wildcard-cert[0].domain_validation_options.*.resource_record_value[count.index]]
+  type            = aws_acm_certificate.wildcard-cert[0].domain_validation_options.*.resource_record_type[count.index]
+  ttl             = 60
   allow_overwrite = true
-  name            = tolist(aws_acm_certificate.wildcard-cert[0].domain_validation_options)[0].resource_record_name
-  records         = [ tolist(aws_acm_certificate.wildcard-cert[0].domain_validation_options)[0].resource_record_value ]
-  type            = tolist(aws_acm_certificate.wildcard-cert[0].domain_validation_options)[0].resource_record_type
   zone_id  = aws_route53_zone.public[0].id
-  ttl      = 60
 }
-
 resource "aws_acm_certificate_validation" "cert" {
   count      = var.use_aws_acm_cert ? 1 : 0
   certificate_arn         = aws_acm_certificate.wildcard-cert[0].arn
-  validation_record_fqdns = [ aws_route53_record.cert_validation[0].fqdn ]
+  validation_record_fqdns = aws_route53_record.cert_validation[*].fqdn
 }
 
 resource "aws_lb" "lb" {
