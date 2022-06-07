@@ -212,7 +212,7 @@ keycloak:
       # we cant get the deployment name here in a nice way. You have to plug it
       # in manually. e.g. the below works for a deployment called "pm4ml"
       configMap:
-        name: {{ item.key }}-mojaloop-payment-manager-keycloak-realm
+        name: {{ item.key }}-keycloak-realm
   extraEnv: |
     - name: KEYCLOAK_USER
       value: admin
