@@ -20,6 +20,9 @@ module "vpc" {
   enable_nat_gateway   = true
 
   tags = merge({}, local.common_tags)
+  private_route_table_tags = {
+    subnet-type = "private-k3s"
+  }
 }
 
 #############################
