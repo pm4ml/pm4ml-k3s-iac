@@ -153,7 +153,11 @@ variable "aws_acm_wildcard_entry" {
   type        = string
   description = "name to add to domain for aws cert validation"
 }
-
+variable "az_count" {
+  type        = number
+  default     = 1
+  description = "Number of azs"
+}
 ###
 # Local copies of variables to allow for parsing
 ###
@@ -169,8 +173,8 @@ locals {
   db_password     = var.db_password != null ? var.db_password : random_password.db_password.result
   db_node_count   = var.k3s_storage_endpoint != "sqlite" ? var.db_node_count : 0
   ssh_keys        = [] # This has been replaced with a dynamically generated key, but could be extended to allow passing additional ssh keys if needed
-  public_subnets  = [cidrsubnet(var.vpc_cidr, 3, 1), cidrsubnet(var.vpc_cidr, 3, 2), cidrsubnet(var.vpc_cidr, 3, 3)]
-  private_subnets = [cidrsubnet(var.vpc_cidr, 3, 4), cidrsubnet(var.vpc_cidr, 3, 5), cidrsubnet(var.vpc_cidr, 3, 6)]
+  public_subnets  = slice([cidrsubnet(var.vpc_cidr, 3, 1), cidrsubnet(var.vpc_cidr, 3, 2), cidrsubnet(var.vpc_cidr, 3, 3)], 0, var.az_count)
+  private_subnets = slice([cidrsubnet(var.vpc_cidr, 3, 4), cidrsubnet(var.vpc_cidr, 3, 5), cidrsubnet(var.vpc_cidr, 3, 6)], 0, var.az_count)
   public_zone_id  = var.create_public_zone == "yes" ? aws_route53_zone.public[0].zone_id : data.aws_route53_zone.public[0].zone_id
   private_zone_id  = var.create_private_zone == "yes" ? aws_route53_zone.private[0].zone_id : data.aws_route53_zone.private[0].zone_id
   external_http_cidr_blocks = length(var.whitelist_ip_file) > 0 ? jsondecode(file(var.whitelist_ip_file)) : ["0.0.0.0/0"]

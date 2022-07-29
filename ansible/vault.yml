@@ -91,40 +91,6 @@
         - vault-issuer
     - name: Create vault service accounts in kubernetes
       shell: |
-        # Create the vault-crd namespace
-        cat <<EOF | kubectl apply -f - 
-        apiVersion: v1
-        kind: Namespace
-        metadata:
-          name: vault-crd
-        EOF
-
-        # Create the vault-crd service account
-        cat <<EOF | kubectl apply -f - 
-        apiVersion: v1
-        kind: ServiceAccount
-        metadata:
-          name: vault-crd-auth
-          namespace: vault-crd
-        EOF
-
-        # Add cluster role binding for the vault-crd service account
-        cat <<EOF | kubectl apply -f -
-        apiVersion: rbac.authorization.k8s.io/v1beta1
-        kind: ClusterRoleBinding
-        metadata:
-          name: vcrd-role-tokenreview-binding
-          namespace: default
-        roleRef:
-          apiGroup: rbac.authorization.k8s.io
-          kind: ClusterRole
-          name: system:auth-delegator
-        subjects:
-        - kind: ServiceAccount
-          name: vault-crd-auth
-          namespace: vault-crd
-        EOF
-
         # Create the cert-manager service account
         cat <<EOF | kubectl apply -f - 
         apiVersion: v1
@@ -176,14 +142,6 @@
         
         kubectl exec vault-0 -- vault secrets enable --path=secrets kv
         
-        kubectl cp "{{ tmpvalues.path }}/vault-crd.policy.hcl" vault-0:/tmp/policy.hcl
-        kubectl exec vault-0 -- vault write sys/policy/vault-crd-policy policy=@/tmp/policy.hcl
-        
-        kubectl exec vault-0 -- vault write auth/kubernetes/role/vault-crd-auth \
-          bound_service_account_names=vault-crd-auth \
-          bound_service_account_namespaces=vault-crd \
-          policies=vault-crd-policy \
-          ttl=1h
 
       tags:
         - vault
@@ -201,6 +159,32 @@
       shell: | 
         helm repo add vault-crd https://raw.githubusercontent.com/DaspawnW/vault-crd-helm/master
         helm upgrade --install --create-namespace -n vault-crd vault-crd vault-crd/vault-crd -f  "{{ tmpvalues.path }}/vault-crd.values.yml"
+        
+        # Add cluster role binding for the vault-crd service account
+        cat <<EOF | kubectl apply -f -
+        apiVersion: rbac.authorization.k8s.io/v1beta1
+        kind: ClusterRoleBinding
+        metadata:
+          name: vcrd-role-tokenreview-binding
+          namespace: default
+        roleRef:
+          apiGroup: rbac.authorization.k8s.io
+          kind: ClusterRole
+          name: system:auth-delegator
+        subjects:
+        - kind: ServiceAccount
+          name: vault-crd-auth
+          namespace: vault-crd
+        EOF
+
+        kubectl cp "{{ tmpvalues.path }}/vault-crd.policy.hcl" vault-0:/tmp/policy.hcl
+        kubectl exec vault-0 -- vault write sys/policy/vault-crd-policy policy=@/tmp/policy.hcl
+        
+        kubectl exec vault-0 -- vault write auth/kubernetes/role/vault-crd-auth \
+          bound_service_account_names=vault-crd-auth \
+          bound_service_account_namespaces=vault-crd \
+          policies=vault-crd-policy \
+          ttl=1h
       tags: 
         - vault-crd
 
