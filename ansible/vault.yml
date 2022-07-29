@@ -91,6 +91,14 @@
         - vault-issuer
     - name: Create vault service accounts in kubernetes
       shell: |
+        # Create the vault-crd namespace
+        cat <<EOF | kubectl apply -f - 
+        apiVersion: v1
+        kind: Namespace
+        metadata:
+          name: vault-crd
+        EOF
+
         # Create the vault-crd service account
         cat <<EOF | kubectl apply -f - 
         apiVersion: v1
