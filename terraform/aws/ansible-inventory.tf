@@ -11,6 +11,7 @@ resource "ansible_group" "all" {
     external_lb_hostname            = aws_lb.lb.dns_name
     internal_lb_hostname            = aws_lb.internal-lb.dns_name
     ansible_ssh_user                = "ubuntu"
+    nat_gw_cidrs                    = join(",", [for ip in module.vpc.nat_public_ips: "${ip}/32"])
   }
 }
 

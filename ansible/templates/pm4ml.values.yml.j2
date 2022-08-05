@@ -87,8 +87,6 @@ management-api:
     MCM_CLIENT_REFRESH_INTERVAL: 60
     PRIVATE_KEY_LENGTH: 2048
     PRIVATE_KEY_ALGORITHM: rsa
-    WS_URL: "{{ item.value.helm_release_name }}-pm4ml-mojaloop-connector"
-    WS_PORT: 4003
     AUTH_ENABLED: {{ item.value.mcm_auth_enabled }}
     AUTH_USER: {{ item.value.mcm_auth_user }}
     AUTH_PASS: {{ item.value.mcm_auth_pass }}
@@ -102,9 +100,11 @@ management-api:
     VAULT_MOUNT_PKI: pki-{{ base_domain }}-{{ item.key }}
     VAULT_MOUNT_KV: secrets/pm4ml/{{ item.key }}
     MOJALOOP_CONNECTOR_FQDN: "connector.{{ item.key }}.{{ item.value.pm4ml_subdomain }}"
+    CALLBACK_URL: "connector.{{ item.key }}.{{ item.value.pm4ml_subdomain }}:9443"
     CERT_MANAGER_ENABLED: true
     CERT_MANAGER_SERVER_CERT_SECRET_NAME: mojaloop-connector-tls
     CERT_MANAGER_SERVER_CERT_SECRET_NAMESPACE: {{ item.key }}
+    WHITELIST_IP: {{ nat_ip_list }}
   ingress:
     enabled: false
 
@@ -122,7 +122,7 @@ prometheus:
     - job_name: 'prometheus-blackbox-exporter'
       static_configs:
         - targets:
-          - "{{ item.value.helm_release_name }}-pm4ml-mojaloop-connector:4004"
+          - "{{ item.value.helm_release_name }}-scheme-adapter:4004"
 
 mojaloop-core-connector:
   ingress:
@@ -148,10 +148,10 @@ mojaloop-core-connector:
       hosts:
         - "*.{{ item.key }}.{{ item.value.pm4ml_subdomain }}"
 
-pm4ml-mojaloop-connector:
+scheme-adapter:
   env:
     DFSP_ID: *dfspId
-    CACHE_HOST: redis-master
+    CACHE_URL: redis://redis-master:6379
     JWS_SIGN: true
     VALIDATE_INBOUND_JWS: true
     PEER_ENDPOINT: "{{ item.value.extgw_fqdn }}:{{ mojaloop_switch_extgw_port }}/fsp/1.0"
@@ -177,6 +177,18 @@ pm4ml-mojaloop-connector:
     - secretName: mojaloop-connector-tls
       hosts:
         - "connector.{{ item.key }}.{{ item.value.pm4ml_subdomain }}"
+
+redis:
+  auth:
+    enabled: false
+    sentinel: false
+  nameOverride: redis
+  fullnameOverride: redis
+  cluster:
+    enabled: false
+  master:
+    persistence:
+      enabled: true
 
 ttk:
   enabled: {{ item.value.ttk_enabled }}
@@ -212,7 +224,7 @@ keycloak:
       # we cant get the deployment name here in a nice way. You have to plug it
       # in manually. e.g. the below works for a deployment called "pm4ml"
       configMap:
-        name: {{ item.key }}-keycloak-realm
+        name: {{ item.key }}-mojaloop-payment-manager-keycloak-realm
   extraEnv: |
     - name: KEYCLOAK_USER
       value: admin
@@ -234,7 +246,8 @@ testIngress:
   enabled: true
   simBackendServiceName: "sim-backend"
   coreConnectorServiceName: "{{ item.value.helm_release_name }}-mojaloop-core-connector"
-  mojaloopConnectorServiceName: "{{ item.value.helm_release_name }}-pm4ml-mojaloop-connector"
+  schemeAdapterServiceName: "{{ item.value.helm_release_name }}-scheme-adapter"
+  mgmtApiServiceName: "{{ item.value.helm_release_name }}-management-api"
   hosts:
     - host: "test.{{ item.key }}.{{ item.value.pm4ml_subdomain }}"
   annotations:

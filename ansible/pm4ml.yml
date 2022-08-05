@@ -12,6 +12,7 @@
     pm4ml_ingress_classname: "{{ int_ingress_classname if pm4ml_dfsp_internal_access_only == 'yes' else ext_ingress_classname }}"
     internal_managed_privkey_base64: "{{ lookup('file', internal_managed_privkey_file) | b64encode if internal_managed_tls == 'no' else '' }}"
     internal_managed_cert_base64: "{{ lookup('file', internal_managed_cert_file) | b64encode if internal_managed_tls == 'no' else '' }}"
+    nat_ip_list: "{{ nat_gw_cidrs }}"
   tasks:
     - name: Bare include (free-form)
       include_vars:
