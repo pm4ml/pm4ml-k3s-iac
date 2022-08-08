@@ -118,6 +118,8 @@ whitelist_ip_file?=
 extra_tag_file?=
 vpn_client_ip_file?=
 grafana_internal_access_only?=yes
+ttk_enabled?=no
+ttk_payee_simulator_enabled?=no
 ##
 # Configuration variables
 ##

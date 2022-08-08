@@ -37,5 +37,3 @@
   "tls_outbound_privkey": |-
     -----BEGIN RSA PRIVATE KEY-----
     -----END RSA PRIVATE KEY-----
-  "ttk_enabled": false
-  "ttk_payee_simulator_enabled": false
