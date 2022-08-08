@@ -160,7 +160,11 @@ scheme-adapter:
     OAUTH_TOKEN_ENDPOINT: "https://{{ item.value.extgw_fqdn }}:{{ mojaloop_switch_extgw_port }}/token"
     OAUTH_CLIENT_KEY: "{{ item.value.extgw_client_key }}"
     OAUTH_CLIENT_SECRET: "{{ item.value.extgw_client_secret }}"
+    %{ if item.value.ttk_payee_simulator_enabled }
+    BACKEND_ENDPOINT: "{{ item.value.helm_release_name }}-ml-testing-toolkit-backend:4040"
+    %{ else }
     BACKEND_ENDPOINT: "{{ item.value.helm_release_name }}-mojaloop-core-connector:3003"
+    %{ endif }
     MGMT_API_WS_URL: "{{ item.value.helm_release_name }}-management-api"
 
   ingress:
@@ -192,6 +196,51 @@ redis:
 
 ttk:
   enabled: {{ item.value.ttk_enabled }}
+  ml-testing-toolkit-backend:
+    ingress:
+      hosts:
+        specApi:
+          host: ttk-specapi.{{ item.key }}.{{ item.value.pm4ml_subdomain }}
+        adminApi:
+          host: ttk.{{ item.key }}.{{ item.value.pm4ml_subdomain }}
+      annotations:
+        kubernetes.io/ingress.class: {{ pm4ml_ingress_classname }}
+        external-dns.alpha.kubernetes.io/target: {{ dfsp_access_lb_hostname }}
+        nginx.ingress.kubernetes.io/rewrite-target: /
+        {% if internal_managed_tls == "yes" %}
+        cert-manager.io/cluster-issuer: letsencrypt
+        {% endif %}
+      tls:
+      {% if internal_managed_tls == "yes" %}
+      - secretName: pm4ml-tls
+      {% else %}
+      - secretName: ca-key-pair
+      {% endif %}
+        hosts:
+          - "*.{{ item.key }}.{{ item.value.pm4ml_subdomain }}"
+
+  ml-testing-toolkit-frontend:
+    ingress:
+      hosts:
+        ui:
+          host: ttk.{{ item.key }}.{{ item.value.pm4ml_subdomain }}
+      annotations:
+        kubernetes.io/ingress.class: {{ pm4ml_ingress_classname }}
+        external-dns.alpha.kubernetes.io/target: {{ dfsp_access_lb_hostname }}
+        nginx.ingress.kubernetes.io/rewrite-target: /
+        {% if internal_managed_tls == "yes" %}
+        cert-manager.io/cluster-issuer: letsencrypt
+        {% endif %}
+      tls:
+      {% if internal_managed_tls == "yes" %}
+      - secretName: pm4ml-tls
+      {% else %}
+      - secretName: ca-key-pair
+      {% endif %}
+        hosts:
+          - "*.{{ item.key }}.{{ item.value.pm4ml_subdomain }}"
+    config:
+      API_BASE_URL: http://ttk.{{ item.key }}.{{ item.value.pm4ml_subdomain }}
 
 keycloak:
   ingress:
