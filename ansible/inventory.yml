@@ -44,6 +44,7 @@ all:
     grafana_internal_access_only: '{{ grafana_internal_access_only }}'
     ttk_enabled: '{{ ttk_enabled }}'
     ttk_payee_simulator_enabled: '{{ ttk_payee_simulator_enabled }}'
+    nat_ip_list: '{{ nat_gw_cidrs }}'
     # --------------
 bastion:
   vars:
