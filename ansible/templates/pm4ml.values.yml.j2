@@ -198,6 +198,8 @@ ttk:
   {% if ttk_enabled == "yes" %}
   enabled: true
   ml-testing-toolkit-backend:
+    nameOverride: ttk-backend
+    fullnameOverride: ttk-backend
     ingress:
       hosts:
         specApi:
@@ -213,6 +215,8 @@ ttk:
       # https://github.com/mojaloop/project/issues/2860
 
   ml-testing-toolkit-frontend:
+    nameOverride: ttk-frontend
+    fullnameOverride: ttk-frontend
     ingress:
       hosts:
         ui:
