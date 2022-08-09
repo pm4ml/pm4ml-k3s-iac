@@ -208,17 +208,8 @@ ttk:
         kubernetes.io/ingress.class: {{ pm4ml_ingress_classname }}
         external-dns.alpha.kubernetes.io/target: {{ dfsp_access_lb_hostname }}
         nginx.ingress.kubernetes.io/rewrite-target: /
-        {% if internal_managed_tls == "yes" %}
-        cert-manager.io/cluster-issuer: letsencrypt
-        {% endif %}
-      tls:
-      {% if internal_managed_tls == "yes" %}
-      - secretName: pm4ml-tls
-      {% else %}
-      - secretName: ca-key-pair
-      {% endif %}
-        hosts:
-          - "*.{{ item.key }}.{{ item.value.pm4ml_subdomain }}"
+      # Not enabling tls ingress endpoints because there is some issue in the TTK helm chart and its not accepting tls ingress configuration.
+      # Need to fix it in TTK helm chart and then only we can enable tls here
 
   ml-testing-toolkit-frontend:
     ingress:
@@ -229,17 +220,8 @@ ttk:
         kubernetes.io/ingress.class: {{ pm4ml_ingress_classname }}
         external-dns.alpha.kubernetes.io/target: {{ dfsp_access_lb_hostname }}
         nginx.ingress.kubernetes.io/rewrite-target: /
-        {% if internal_managed_tls == "yes" %}
-        cert-manager.io/cluster-issuer: letsencrypt
-        {% endif %}
-      tls:
-      {% if internal_managed_tls == "yes" %}
-      - secretName: pm4ml-tls
-      {% else %}
-      - secretName: ca-key-pair
-      {% endif %}
-        hosts:
-          - "*.{{ item.key }}.{{ item.value.pm4ml_subdomain }}"
+      # Not enabling tls ingress endpoints because there is some issue in the TTK helm chart and its not accepting tls ingress configuration.
+      # Need to fix it in TTK helm chart and then only we can enable tls here
     config:
       API_BASE_URL: http://ttk.{{ item.key }}.{{ item.value.pm4ml_subdomain }}
   {% else %}
