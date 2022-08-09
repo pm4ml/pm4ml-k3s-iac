@@ -209,7 +209,6 @@ ttk:
       annotations:
         kubernetes.io/ingress.class: {{ pm4ml_ingress_classname }}
         external-dns.alpha.kubernetes.io/target: {{ dfsp_access_lb_hostname }}
-        nginx.ingress.kubernetes.io/rewrite-target: /
       # Not enabling tls ingress endpoints because there is some issue in the TTK helm chart and its not accepting tls ingress configuration.
       # Need to fix it in TTK helm chart and then only we can enable tls here
       # https://github.com/mojaloop/project/issues/2860
@@ -224,7 +223,6 @@ ttk:
       annotations:
         kubernetes.io/ingress.class: {{ pm4ml_ingress_classname }}
         external-dns.alpha.kubernetes.io/target: {{ dfsp_access_lb_hostname }}
-        nginx.ingress.kubernetes.io/rewrite-target: /
       # Not enabling tls ingress endpoints because there is some issue in the TTK helm chart and its not accepting tls ingress configuration.
       # Need to fix it in TTK helm chart and then only we can enable tls here
       # https://github.com/mojaloop/project/issues/2860
