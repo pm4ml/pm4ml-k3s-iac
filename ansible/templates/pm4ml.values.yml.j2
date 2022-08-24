@@ -220,21 +220,6 @@ ttk:
         "DEFAULT_ENVIRONMENT_FILE_NAME": "pm4ml-default-environment.json",
         "FSPID": *dfspId
       }
-      system_config.json: {
-        "API_DEFINITIONS": [
-          {
-            "type": "scheme_adapter_outbound",
-            "version": "1.0",
-            "folderPath": "mojaloop_sdk_outbound_scheme_adapter_1.0"
-          },
-          {
-            "type": "core_connector",
-            "version": "1.4",
-            "folderPath": "payment_manager_1.4",
-            "hostnames": [ "ttkpm4mlreceiver-ttk-backend" ]
-          }
-        ]
-      }
 
   ml-testing-toolkit-frontend:
     nameOverride: ttk-frontend
