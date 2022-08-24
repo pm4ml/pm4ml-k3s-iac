@@ -37,4 +37,3 @@
   "tls_outbound_privkey": |-
     -----BEGIN RSA PRIVATE KEY-----
     -----END RSA PRIVATE KEY-----
-  "ttk_enabled": false

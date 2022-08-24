@@ -42,6 +42,9 @@ all:
     internal_managed_privkey_file: '{{ internal_managed_privkey_file }}'
     mojaloop_switch_extgw_port: '{{ ext_gw_listen_port }}'
     grafana_internal_access_only: '{{ grafana_internal_access_only }}'
+    ttk_enabled: '{{ ttk_enabled }}'
+    ttk_payee_simulator_enabled: '{{ ttk_payee_simulator_enabled }}'
+    nat_ip_list: '{{ nat_gw_cidrs }}'
     # --------------
 bastion:
   vars:
