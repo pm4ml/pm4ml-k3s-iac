@@ -122,7 +122,7 @@ prometheus:
     - job_name: 'prometheus-blackbox-exporter'
       static_configs:
         - targets:
-          - "{{ item.value.helm_release_name }}-scheme-adapter:4004"
+          - "{{ item.value.helm_release_name }}-sdk-scheme-adapter-api-svc:4004"
 
 mojaloop-core-connector:
   ingress:
@@ -149,38 +149,48 @@ mojaloop-core-connector:
         - "*.{{ item.key }}.{{ item.value.pm4ml_subdomain }}"
 
 scheme-adapter:
-  env:
-    DFSP_ID: *dfspId
-    CACHE_URL: redis://redis-master:6379
-    JWS_SIGN: true
-    VALIDATE_INBOUND_JWS: true
-    PEER_ENDPOINT: "{{ item.value.extgw_fqdn }}:{{ mojaloop_switch_extgw_port }}/fsp/1.0"
-    OUTBOUND_MUTUAL_TLS_ENABLED: true
-    INBOUND_MUTUAL_TLS_ENABLED: false
-    OAUTH_TOKEN_ENDPOINT: "https://{{ item.value.extgw_fqdn }}:{{ mojaloop_switch_extgw_port }}/token"
-    OAUTH_CLIENT_KEY: "{{ item.value.extgw_client_key }}"
-    OAUTH_CLIENT_SECRET: "{{ item.value.extgw_client_secret }}"
-    {% if ttk_payee_simulator_enabled == "yes" %}
-    BACKEND_ENDPOINT: "{{ item.value.helm_release_name }}-ttk-backend:4040"
-    {% else %}
-    BACKEND_ENDPOINT: "{{ item.value.helm_release_name }}-mojaloop-core-connector:3003"
-    {% endif %}
-    MGMT_API_WS_URL: "{{ item.value.helm_release_name }}-management-api"
-
-  ingress:
-    enabled: true
-    hosts:
-      - host: "connector.{{ item.key }}.{{ item.value.pm4ml_subdomain }}"
-    annotations:
-      kubernetes.io/ingress.class: {{ ext_ingress_classname }}
-      #cert-manager.io/cluster-issuer: vault-issuer-{{ item.key }}
-      external-dns.alpha.kubernetes.io/target: {{ switch_access_lb_hostname }}
-      nginx.ingress.kubernetes.io/auth-tls-verify-client: "on"
-      nginx.ingress.kubernetes.io/auth-tls-secret: "{{ item.key }}/mojaloop-connector-tls"
-    tls:
-    - secretName: mojaloop-connector-tls
-      hosts:
-        - "connector.{{ item.key }}.{{ item.value.pm4ml_subdomain }}"
+  sdk-scheme-adapter-api-svc:
+    redis:
+      host: redis-master
+      port: 6379
+    config:
+      simName: *dfspId
+      ## TODO: sdk chart is not accepting empty jws values if JWS params enabled. Need to fix.
+      jwsSigningKey: "test"
+      jwsVerificationKeys: {
+        "test": "test"
+      }
+    env:
+      DFSP_ID: *dfspId
+      CACHE_URL: redis://redis-master:6379
+      JWS_SIGN: true
+      VALIDATE_INBOUND_JWS: true
+      PEER_ENDPOINT: "{{ item.value.extgw_fqdn }}:{{ mojaloop_switch_extgw_port }}/fsp/1.0"
+      OUTBOUND_MUTUAL_TLS_ENABLED: true
+      INBOUND_MUTUAL_TLS_ENABLED: false
+      OAUTH_TOKEN_ENDPOINT: "https://{{ item.value.extgw_fqdn }}:{{ mojaloop_switch_extgw_port }}/token"
+      OAUTH_CLIENT_KEY: "{{ item.value.extgw_client_key }}"
+      OAUTH_CLIENT_SECRET: "{{ item.value.extgw_client_secret }}"
+      {% if ttk_payee_simulator_enabled == "yes" %}
+      BACKEND_ENDPOINT: "{{ item.value.helm_release_name }}-ttk-backend:4040"
+      {% else %}
+      BACKEND_ENDPOINT: "{{ item.value.helm_release_name }}-mojaloop-core-connector:3003"
+      {% endif %}
+      MGMT_API_WS_URL: "{{ item.value.helm_release_name }}-management-api"
+    ingress:
+      enabled: true
+      annotations:
+        kubernetes.io/ingress.class: {{ ext_ingress_classname }}
+        #cert-manager.io/cluster-issuer: vault-issuer-{{ item.key }}
+        external-dns.alpha.kubernetes.io/target: {{ switch_access_lb_hostname }}
+        nginx.ingress.kubernetes.io/auth-tls-verify-client: "on"
+        nginx.ingress.kubernetes.io/auth-tls-secret: "{{ item.key }}/mojaloop-connector-tls"
+        nginx.ingress.kubernetes.io/rewrite-target: /$2
+      hostname: "connector.{{ item.key }}.{{ item.value.pm4ml_subdomain }}"
+      extraTls:
+      - hosts:
+          - "connector.{{ item.key }}.{{ item.value.pm4ml_subdomain }}"
+        secretName: mojaloop-connector-tls
 
 redis:
   auth:
@@ -215,7 +225,7 @@ ttk:
     config:
       user_config.json: {
         "VERSION": 1,
-        "CALLBACK_ENDPOINT": "http://{{ item.value.helm_release_name }}-scheme-adapter:4001",
+        "CALLBACK_ENDPOINT": "http://{{ item.value.helm_release_name }}-sdk-scheme-adapter-api-svc:4001",
         "SEND_CALLBACK_ENABLE": true,
         "DEFAULT_ENVIRONMENT_FILE_NAME": "pm4ml-default-environment.json",
         "FSPID": *dfspId
@@ -309,7 +319,7 @@ testIngress:
   enabled: true
   simBackendServiceName: "sim-backend"
   coreConnectorServiceName: "{{ item.value.helm_release_name }}-mojaloop-core-connector"
-  schemeAdapterServiceName: "{{ item.value.helm_release_name }}-scheme-adapter"
+  schemeAdapterServiceName: "{{ item.value.helm_release_name }}-sdk-scheme-adapter-api-svc"
   mgmtApiServiceName: "{{ item.value.helm_release_name }}-management-api"
   hosts:
     - host: "test.{{ item.key }}.{{ item.value.pm4ml_subdomain }}"
