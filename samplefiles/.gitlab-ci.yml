@@ -1,6 +1,6 @@
 default: 
   image: 
-    name: ghcr.io/pm4ml/k3sbootstrap:0.14.0
+    name: ghcr.io/pm4ml/k3sbootstrap:0.15.0
   before_script:
     - test -n "$BUCKET"
     - test -n "$PM4ML_ENVIRONMENT"
