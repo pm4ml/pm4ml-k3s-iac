@@ -172,7 +172,7 @@ scheme-adapter:
       OAUTH_TOKEN_ENDPOINT: "https://{{ item.value.extgw_fqdn }}:{{ mojaloop_switch_extgw_port }}/token"
       OAUTH_CLIENT_KEY: "{{ item.value.extgw_client_key }}"
       OAUTH_CLIENT_SECRET: "{{ item.value.extgw_client_secret }}"
-      {% if ttk_payee_simulator_enabled == "yes" %}
+      {% if item.value.use_ttk_as_backend_simulator == "yes" %}
       BACKEND_ENDPOINT: "{{ item.value.helm_release_name }}-ttk-backend:4040"
       {% else %}
       BACKEND_ENDPOINT: "{{ item.value.helm_release_name }}-mojaloop-core-connector:3003"
@@ -206,7 +206,7 @@ redis:
       enabled: true
 
 ttk:
-  {% if ttk_enabled == "yes" %}
+  {% if item.value.ttk_enabled == "yes" %}
   enabled: true
   ml-testing-toolkit-backend:
     nameOverride: ttk-backend
