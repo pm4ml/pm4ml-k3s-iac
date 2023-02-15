@@ -166,6 +166,7 @@ scheme-adapter:
       JWS_SIGN: true
       VALIDATE_INBOUND_JWS: true
       PEER_ENDPOINT: "{{ item.value.extgw_fqdn }}:{{ mojaloop_switch_extgw_port }}/fsp/1.0"
+      ALS_ENDPOINT: "{{ item.value.extgw_fqdn }}:{{ mojaloop_switch_extgw_port }}/fsp/1.0"
       OUTBOUND_MUTUAL_TLS_ENABLED: true
       INBOUND_MUTUAL_TLS_ENABLED: false
       OAUTH_TOKEN_ENDPOINT: "https://{{ item.value.extgw_fqdn }}:{{ mojaloop_switch_extgw_port }}/token"
@@ -217,6 +218,7 @@ ttk:
         adminApi:
           host: ttk.{{ item.key }}.{{ item.value.pm4ml_subdomain }}
       annotations:
+      ## TODO: disabling the following line temporarily because of an issue with TTK helm chart.
       # kubernetes.io/ingress.class: {{ pm4ml_ingress_classname }}
         external-dns.alpha.kubernetes.io/target: {{ dfsp_access_lb_hostname }}
       # Not enabling tls ingress endpoints because there is some issue in the TTK helm chart and its not accepting tls ingress configuration.
