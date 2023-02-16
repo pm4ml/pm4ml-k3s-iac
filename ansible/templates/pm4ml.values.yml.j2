@@ -152,8 +152,8 @@ scheme-adapter:
   sdk-scheme-adapter-api-svc:
     {% if item.value.enable_sdk_bulk_transaction_support == "yes" %}
     kafka: &kafkaConfig
-      host: *MOJA_TTK_SIM_KAFKA_HOST
-      port: *MOJA_TTK_SIM_KAFKA_PORT
+      host: kafka
+      port: 9092
     {% endif %}
     redis: &redisConfig
       host: redis-master
@@ -201,47 +201,6 @@ scheme-adapter:
       - hosts:
           - "connector.{{ item.key }}.{{ item.value.pm4ml_subdomain }}"
         secretName: mojaloop-connector-tls
-    {% if item.value.enable_sdk_bulk_transaction_support == "yes" %}
-    initContainers: |
-      - name: wait-for-kafka
-        image: solsson/kafka:2.8.1
-        imagePullPolicy: IfNotPresent
-        command:
-          - sh
-          - -c
-          - until ./bin/kafka-broker-api-versions.sh --bootstrap-server ${KAFKA_HOST}:${KAFKA_PORT};
-            do
-              echo --------------------;
-              echo Waiting for Kafka...;
-              sleep 2;
-            done;
-            echo ====================;
-            echo Kafka ok!;
-        env:
-          - name: KAFKA_HOST
-            value: {{ include "common.tplvalues.render" (dict "value" .Values.kafka.host "context" $) | default (include "common.tplvalues.render" (dict "value" .Values.global.kafka.host "context" $)) | quote }}
-          - name: KAFKA_PORT
-            value: {{ .Values.kafka.port | default .Values.global.kafka.port | quote }}
-      - name: kafka-topics-create
-        image: docker.io/bitnami/kafka:3.2
-        imagePullPolicy: IfNotPresent
-        command:
-          - sh
-          - -c
-          - kafka-topics.sh --bootstrap-server ${KAFKA_HOST}:${KAFKA_PORT} --list;
-            echo 'Creating kafka topics';
-            kafka-topics.sh --bootstrap-server ${KAFKA_HOST}:${KAFKA_PORT} --create --if-not-exists --topic ${SIM_NAME}-topic-sdk-outbound-command-events --replication-factor 1 --partitions 1;
-            kafka-topics.sh --bootstrap-server ${KAFKA_HOST}:${KAFKA_PORT} --create --if-not-exists --topic ${SIM_NAME}-topic-sdk-outbound-domain-events --replication-factor 1 --partitions 1;
-            echo -e 'Successfully created the following topics:';
-            kafka-topics.sh --bootstrap-server ${KAFKA_HOST}:${KAFKA_PORT} --list;
-        env:
-          - name: KAFKA_HOST
-            value: {{ include "common.tplvalues.render" (dict "value" .Values.kafka.host "context" $) | default (include "common.tplvalues.render" (dict "value" .Values.global.kafka.host "context" $)) | quote }}
-          - name: KAFKA_PORT
-            value: {{ .Values.kafka.port | default .Values.global.kafka.port | quote }}
-          - name: SIM_NAME
-            value: {{ .Values.config.simName }}
-    {% endif %}
 
   {% if item.value.enable_sdk_bulk_transaction_support == "yes" %}
   sdk-scheme-adapter-dom-evt-handler:
