@@ -118,8 +118,7 @@ whitelist_ip_file?=
 extra_tag_file?=
 vpn_client_ip_file?=
 grafana_internal_access_only?=yes
-ttk_enabled?=no
-ttk_payee_simulator_enabled?=no
+pm4ml_kafka_helm_version?=15.2.1
 ##
 # Configuration variables
 ##
@@ -383,6 +382,7 @@ config: .env ## Run first-time configuration
 		pm4ml_client_cert_remote_dir=$$(readConfigVar "PM4ML Remote Cert Dir" "pm4ml_client_cert_remote_dir" "$(pm4ml_client_cert_remote_dir)")
 		pm4ml_client_cert_local_dir=$$(readConfigVar "PM4ML Local Cert Dir" "pm4ml_client_cert_local_dir" "$(pm4ml_client_cert_local_dir)")
 		pm4ml_helm_version=$$(readConfigVar "PM4ML Chart Version" "pm4ml_helm_version" "$(pm4ml_helm_version)")
+		pm4ml_kafka_helm_version=$$(readConfigVar "PM4ML Kafka Chart Version" "pm4ml_kafka_helm_version" "$(pm4ml_kafka_helm_version)")
 		pm4ml_dfsp_internal_access_only=$$(readConfigVar "PM4ML Endpoint Access" "pm4ml_dfsp_internal_access_only" "$(pm4ml_dfsp_internal_access_only)")
 		internal_pm4ml_instance=$$(readConfigVar "expose outbound connector ingress" "internal_pm4ml_instance" "$(internal_pm4ml_instance)")
 	fi

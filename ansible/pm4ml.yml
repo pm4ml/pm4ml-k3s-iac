@@ -116,6 +116,30 @@
         - pm4ml
       when: internal_managed_tls == 'no'
 
+    - name: Upload helm values of kafka
+      template:
+        src: "templates/kafka.values.yml.j2"
+        dest: "{{ tmpvalues.path }}/{{ item.key }}.kafka.values.yml"
+      loop: "{{ pm4ml | dict2items }}"
+      loop_control:
+        label: "{{ item.key }}"
+      tags:
+        - kafka
+      when: item.value.enable_sdk_bulk_transaction_support == 'yes'
+      
+    - name: Deploy kafka helm chart
+      shell: |
+        helm repo add pm https://raw.githubusercontent.com/bitnami/charts/archive-full-index/bitnami
+        helm repo update
+        # sed -i "s/##KEYCLOAK_PASSWORD##/${KEYCLOAKPW}/g" {{ tmpvalues.path }}/{{ item.key }}.kafka.values.yml
+        helm upgrade --create-namespace --namespace {{ item.key }} --install kafka kafka --version {{ pm4ml_kafka_helm_version }} -f "{{ tmpvalues.path }}/{{ item.key }}.kafka.values.yml"
+      loop: "{{ pm4ml | dict2items }}"
+      loop_control:
+        label: "{{ item.key }}"
+      tags:
+        - kafka
+      when: item.value.enable_sdk_bulk_transaction_support == 'yes'
+
     - name: Deploy pm4ml helm chart
       shell: |
         helm repo add pm https://pm4ml.github.io/mojaloop-payment-manager-helm/repo
