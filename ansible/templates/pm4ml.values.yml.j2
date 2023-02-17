@@ -160,6 +160,11 @@ scheme-adapter:
       port: 6379
     config:
       simName: *dfspId
+      {% if item.value.enable_sdk_bulk_transaction_support == "yes" %}
+      bulkTransactionSupportEnabled: true
+      {% else %}
+      bulkTransactionSupportEnabled: false
+      {% endif %}
       ## TODO: sdk chart is not accepting empty jws values if JWS params enabled. Need to fix.
       jwsSigningKey: "test"
       jwsVerificationKeys: {

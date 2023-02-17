@@ -129,10 +129,10 @@
       
     - name: Deploy kafka helm chart
       shell: |
-        helm repo add pm https://raw.githubusercontent.com/bitnami/charts/archive-full-index/bitnami
+        helm repo add kafka_bitnami https://raw.githubusercontent.com/bitnami/charts/archive-full-index/bitnami
         helm repo update
         # sed -i "s/##KEYCLOAK_PASSWORD##/${KEYCLOAKPW}/g" {{ tmpvalues.path }}/{{ item.key }}.kafka.values.yml
-        helm upgrade --create-namespace --namespace {{ item.key }} --install kafka kafka --version {{ pm4ml_kafka_helm_version }} -f "{{ tmpvalues.path }}/{{ item.key }}.kafka.values.yml"
+        helm upgrade --create-namespace --namespace {{ item.key }} --install kafka kafka_bitnami/kafka --version {{ pm4ml_kafka_helm_version }} -f "{{ tmpvalues.path }}/{{ item.key }}.kafka.values.yml"
       loop: "{{ pm4ml | dict2items }}"
       loop_control:
         label: "{{ item.key }}"
