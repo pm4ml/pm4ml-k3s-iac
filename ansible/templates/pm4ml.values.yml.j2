@@ -224,6 +224,8 @@ scheme-adapter:
   {% endif %}
 
 redis:
+  replica:
+    replicaCount: {{ redis_replica_count }}
   auth:
     enabled: false
     sentinel: false
