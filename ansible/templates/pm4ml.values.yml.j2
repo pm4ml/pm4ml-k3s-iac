@@ -249,9 +249,8 @@ ttk:
           host: ttk-specapi.{{ item.key }}.{{ item.value.pm4ml_subdomain }}
         adminApi:
           host: ttk.{{ item.key }}.{{ item.value.pm4ml_subdomain }}
+      className: {{ pm4ml_ingress_classname }}
       annotations:
-      ## TODO: disabling the following line temporarily because of an issue with TTK helm chart.
-      # kubernetes.io/ingress.class: {{ pm4ml_ingress_classname }}
         external-dns.alpha.kubernetes.io/target: {{ dfsp_access_lb_hostname }}
       # Not enabling tls ingress endpoints because there is some issue in the TTK helm chart and its not accepting tls ingress configuration.
       # Need to fix it in TTK helm chart and then only we can enable tls here
@@ -272,8 +271,8 @@ ttk:
       hosts:
         ui:
           host: ttk.{{ item.key }}.{{ item.value.pm4ml_subdomain }}
+      className: {{ pm4ml_ingress_classname }}
       annotations:
-      # kubernetes.io/ingress.class: {{ pm4ml_ingress_classname }}
         external-dns.alpha.kubernetes.io/target: {{ dfsp_access_lb_hostname }}
       # Not enabling tls ingress endpoints because there is some issue in the TTK helm chart and its not accepting tls ingress configuration.
       # Need to fix it in TTK helm chart and then only we can enable tls here
