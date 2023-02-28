@@ -166,6 +166,7 @@ scheme-adapter:
       JWS_SIGN: true
       VALIDATE_INBOUND_JWS: true
       PEER_ENDPOINT: "{{ item.value.extgw_fqdn }}:{{ mojaloop_switch_extgw_port }}/fsp/1.0"
+      ALS_ENDPOINT: "{{ item.value.extgw_fqdn }}:{{ mojaloop_switch_extgw_port }}/fsp/1.0"
       OUTBOUND_MUTUAL_TLS_ENABLED: true
       INBOUND_MUTUAL_TLS_ENABLED: false
       OAUTH_TOKEN_ENDPOINT: "https://{{ item.value.extgw_fqdn }}:{{ mojaloop_switch_extgw_port }}/token"
@@ -216,8 +217,8 @@ ttk:
           host: ttk-specapi.{{ item.key }}.{{ item.value.pm4ml_subdomain }}
         adminApi:
           host: ttk.{{ item.key }}.{{ item.value.pm4ml_subdomain }}
+      className: {{ pm4ml_ingress_classname }}
       annotations:
-        kubernetes.io/ingress.class: {{ pm4ml_ingress_classname }}
         external-dns.alpha.kubernetes.io/target: {{ dfsp_access_lb_hostname }}
       # Not enabling tls ingress endpoints because there is some issue in the TTK helm chart and its not accepting tls ingress configuration.
       # Need to fix it in TTK helm chart and then only we can enable tls here
@@ -230,21 +231,6 @@ ttk:
         "DEFAULT_ENVIRONMENT_FILE_NAME": "pm4ml-default-environment.json",
         "FSPID": *dfspId
       }
-      system_config.json: {
-        "API_DEFINITIONS": [
-          {
-            "type": "scheme_adapter_outbound",
-            "version": "1.0",
-            "folderPath": "mojaloop_sdk_outbound_scheme_adapter_1.0"
-          },
-          {
-            "type": "core_connector",
-            "version": "1.4",
-            "folderPath": "mojaloop_simulator_sim_1.4",
-            "hostnames": [ "{{ item.value.helm_release_name }}-ttk-backend" ]
-          }
-        ]
-      }
 
   ml-testing-toolkit-frontend:
     nameOverride: ttk-frontend
@@ -253,8 +239,8 @@ ttk:
       hosts:
         ui:
           host: ttk.{{ item.key }}.{{ item.value.pm4ml_subdomain }}
+      className: {{ pm4ml_ingress_classname }}
       annotations:
-        kubernetes.io/ingress.class: {{ pm4ml_ingress_classname }}
         external-dns.alpha.kubernetes.io/target: {{ dfsp_access_lb_hostname }}
       # Not enabling tls ingress endpoints because there is some issue in the TTK helm chart and its not accepting tls ingress configuration.
       # Need to fix it in TTK helm chart and then only we can enable tls here
