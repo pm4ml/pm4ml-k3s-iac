@@ -150,11 +150,21 @@ mojaloop-core-connector:
 
 scheme-adapter:
   sdk-scheme-adapter-api-svc:
-    redis:
+    {% if item.value.enable_sdk_bulk_transaction_support == "yes" %}
+    kafka: &kafkaConfig
+      host: kafka
+      port: 9092
+    {% endif %}
+    redis: &redisConfig
       host: redis-master
       port: 6379
     config:
       simName: *dfspId
+      {% if item.value.enable_sdk_bulk_transaction_support == "yes" %}
+      bulkTransactionSupportEnabled: true
+      {% else %}
+      bulkTransactionSupportEnabled: false
+      {% endif %}
       ## TODO: sdk chart is not accepting empty jws values if JWS params enabled. Need to fix.
       jwsSigningKey: "test"
       jwsVerificationKeys: {
@@ -178,6 +188,11 @@ scheme-adapter:
       BACKEND_ENDPOINT: "{{ item.value.helm_release_name }}-mojaloop-core-connector:3003"
       {% endif %}
       MGMT_API_WS_URL: "{{ item.value.helm_release_name }}-management-api"
+      {% if item.value.enable_sdk_bulk_transaction_support == "yes" %}
+      ENABLE_BACKEND_EVENT_HANDLER: true
+      ENABLE_FSPIOP_EVENT_HANDLER: true
+      REQUEST_PROCESSING_TIMEOUT_SECONDS: 30
+      {% endif %}
     ingress:
       enabled: true
       annotations:
@@ -193,7 +208,25 @@ scheme-adapter:
           - "connector.{{ item.key }}.{{ item.value.pm4ml_subdomain }}"
         secretName: mojaloop-connector-tls
 
+  {% if item.value.enable_sdk_bulk_transaction_support == "yes" %}
+  sdk-scheme-adapter-dom-evt-handler:
+    enabled: true
+    kafka: *kafkaConfig
+    redis: *redisConfig
+    config:
+      simName: *dfspId
+
+  sdk-scheme-adapter-cmd-evt-handler:
+    enabled: true
+    kafka: *kafkaConfig
+    redis: *redisConfig
+    config:
+      simName: *dfspId
+  {% endif %}
+
 redis:
+  replica:
+    replicaCount: {{ redis_replica_count }}
   auth:
     enabled: false
     sentinel: false
@@ -217,8 +250,9 @@ ttk:
           host: ttk-specapi.{{ item.key }}.{{ item.value.pm4ml_subdomain }}
         adminApi:
           host: ttk.{{ item.key }}.{{ item.value.pm4ml_subdomain }}
-      className: {{ pm4ml_ingress_classname }}
+      className: null
       annotations:
+        kubernetes.io/ingress.class: {{ pm4ml_ingress_classname }}
         external-dns.alpha.kubernetes.io/target: {{ dfsp_access_lb_hostname }}
       # Not enabling tls ingress endpoints because there is some issue in the TTK helm chart and its not accepting tls ingress configuration.
       # Need to fix it in TTK helm chart and then only we can enable tls here
@@ -239,8 +273,9 @@ ttk:
       hosts:
         ui:
           host: ttk.{{ item.key }}.{{ item.value.pm4ml_subdomain }}
-      className: {{ pm4ml_ingress_classname }}
+      className: null
       annotations:
+        kubernetes.io/ingress.class: {{ pm4ml_ingress_classname }}
         external-dns.alpha.kubernetes.io/target: {{ dfsp_access_lb_hostname }}
       # Not enabling tls ingress endpoints because there is some issue in the TTK helm chart and its not accepting tls ingress configuration.
       # Need to fix it in TTK helm chart and then only we can enable tls here
