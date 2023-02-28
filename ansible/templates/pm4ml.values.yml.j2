@@ -191,6 +191,7 @@ scheme-adapter:
       {% if item.value.enable_sdk_bulk_transaction_support == "yes" %}
       ENABLE_BACKEND_EVENT_HANDLER: true
       ENABLE_FSPIOP_EVENT_HANDLER: true
+      REQUEST_PROCESSING_TIMEOUT_SECONDS: 30
       {% endif %}
     ingress:
       enabled: true
